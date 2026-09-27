@@ -1,0 +1,128 @@
+table fact_Cartera_CxC_CxP
+	lineageTag: 36f8bf74-01bf-43aa-b125-2df59aa6a4b2
+
+	column ID_Factura
+		dataType: string
+		lineageTag: e6103e3c-c5cf-4cf5-a577-749a7c586845
+		summarizeBy: none
+		sourceColumn: ID_Factura
+
+		annotation SummarizationSetBy = Automatic
+
+	column Tipo
+		dataType: string
+		lineageTag: d626c5cd-621f-4b61-bd2c-03e8df6a508a
+		summarizeBy: none
+		sourceColumn: Tipo
+
+		annotation SummarizationSetBy = Automatic
+
+	column ID_Tercero
+		dataType: string
+		lineageTag: feed4bdb-bb29-433f-86a7-6052153f4194
+		summarizeBy: none
+		sourceColumn: ID_Tercero
+
+		annotation SummarizationSetBy = Automatic
+
+	column Fecha_Emision
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 2033d28b-8e1f-461e-b4bb-75d58742e9cd
+		summarizeBy: none
+		sourceColumn: Fecha_Emision
+
+		variation Variación
+			isDefault
+			relationship: 959f7033-694e-43b5-9cab-543af1dda93e
+			defaultHierarchy: LocalDateTable_b465f06d-bb2b-493d-a6e8-fa208afdf063.'Jerarquía de fechas'
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Fecha_Vencimiento
+		dataType: dateTime
+		formatString: Short Date
+		lineageTag: 5bb6cac3-5e9d-4555-9f9f-4dd2741c60f2
+		summarizeBy: none
+		sourceColumn: Fecha_Vencimiento
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Monto_Total
+		dataType: decimal
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: e1680369-361a-48d0-a08a-291b2617d219
+		summarizeBy: sum
+		sourceColumn: Monto_Total
+
+		annotation SummarizationSetBy = Automatic
+
+	column Saldo_Pendiente
+		dataType: decimal
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: ac71a1b3-79f4-46c0-87dc-136d8b6a5994
+		summarizeBy: sum
+		sourceColumn: Saldo_Pendiente
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Impacto Mora Columna' =
+			
+			IF(
+			    fact_Cartera_CxC_CxP[Tipo] = "CxC",
+			    SWITCH(
+			        TRUE(),
+			        fact_Cartera_CxC_CxP[Saldo_Pendiente] >= 300000, "Critical",
+			        fact_Cartera_CxC_CxP[Saldo_Pendiente] >= 150000, "High",
+			        "Medium"
+			    ),
+			    "N/A - Proveedor"
+			)
+		lineageTag: b7b09e9a-7878-4c3c-b81f-9146f03b9d60
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	column Fecha_Pago_Real
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 8a79229b-805e-4ce5-9541-f1cd64974b72
+		summarizeBy: none
+		sourceColumn: Fecha_Pago_Real
+
+		variation Variación
+			isDefault
+			relationship: 94f6f1b0-7674-4fd4-afb1-7ce221ad3397
+			defaultHierarchy: LocalDateTable_ed99d049-ca78-47d9-8c52-a6015c0e5154.'Jerarquía de fechas'
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Estatus
+		dataType: string
+		lineageTag: a7e2b191-5d44-4ea3-ad01-060978147054
+		summarizeBy: none
+		sourceColumn: Estatus
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fact_Cartera_CxC_CxP = m
+		mode: import
+		source =
+				let
+				  Origen = Csv.Document(File.Contents("C:\Users\TYP\OneDrive - Ixtletec\Escritorio\Portafolio\Cash Flow Stress Testing_PBI\gemini-code-1785530113491.txt"), [Delimiter = ",", Columns = 9, QuoteStyle = QuoteStyle.None]),
+				  #"Encabezados promovidos" = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				  #"Nulos reemplazados" = Table.ReplaceValue(#"Encabezados promovidos", "", null, Replacer.ReplaceValue, {"Fecha_Pago_Real"}),
+				    #"Tipo cambiado" = Table.TransformColumnTypes(#"Nulos reemplazados",{{"Monto_Total", Currency.Type}, {"Saldo_Pendiente", Currency.Type}, {"Fecha_Vencimiento", type date}, {"Fecha_Emision", type date}, {"Fecha_Pago_Real", type date}})
+				in
+				    #"Tipo cambiado"
+
+	annotation PBI_ResultType = Table
+
+	annotation PBI_NavigationStepName = Navegación
+

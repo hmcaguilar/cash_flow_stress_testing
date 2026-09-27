@@ -1,0 +1,1094 @@
+table Medidas
+	lineageTag: 9d81a71a-f33c-408f-9ce3-d80e0da9fc6c
+
+	measure 'Caja Inicial' = 800000
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: ca9e43af-2684-42fb-8ac8-d6e29fc77d98
+
+	measure 'Ingresos Base' =
+			-- Cobrado: en Fecha_Pago_Real. Abierto (Pendiente/Vencido): en su vencimiento, nunca antes del corte. Incobrable: excluido.
+			VAR D0 = MIN(dim_Calendario[Date])
+			VAR D1 = MAX(dim_Calendario[Date])
+			VAR Corte = [Fecha Corte]
+			RETURN
+			CALCULATE(
+			    SUMX(
+			        FILTER(fact_Cartera_CxC_CxP, fact_Cartera_CxC_CxP[Tipo] = "CxC" && fact_Cartera_CxC_CxP[Estatus] <> "Incobrable"),
+			        VAR EsPagado = fact_Cartera_CxC_CxP[Estatus] = "Pagado"
+			        VAR F = IF(EsPagado, fact_Cartera_CxC_CxP[Fecha_Pago_Real], MAX(fact_Cartera_CxC_CxP[Fecha_Vencimiento], Corte))
+			        RETURN IF(F >= D0 && F <= D1, IF(EsPagado, fact_Cartera_CxC_CxP[Monto_Total], fact_Cartera_CxC_CxP[Saldo_Pendiente]))
+			    ),
+			    REMOVEFILTERS(dim_Calendario)
+			)
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: 5531b8c5-df83-4f40-be45-7f9b0988c413
+
+	measure 'Egresos CxP' =
+			-- Pagado: en Fecha_Pago_Real. Pendiente: en su vencimiento, nunca antes del corte.
+			VAR D0 = MIN(dim_Calendario[Date])
+			VAR D1 = MAX(dim_Calendario[Date])
+			VAR Corte = [Fecha Corte]
+			RETURN
+			CALCULATE(
+			    SUMX(
+			        FILTER(fact_Cartera_CxC_CxP, fact_Cartera_CxC_CxP[Tipo] = "CxP"),
+			        VAR EsPagado = fact_Cartera_CxC_CxP[Estatus] = "Pagado"
+			        VAR F = IF(EsPagado, fact_Cartera_CxC_CxP[Fecha_Pago_Real], MAX(fact_Cartera_CxC_CxP[Fecha_Vencimiento], Corte))
+			        RETURN IF(F >= D0 && F <= D1, IF(EsPagado, fact_Cartera_CxC_CxP[Monto_Total], fact_Cartera_CxC_CxP[Saldo_Pendiente]))
+			    ),
+			    REMOVEFILTERS(dim_Calendario)
+			)
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: 8225c121-0ec7-4555-93fa-4050f708e1e9
+
+	measure 'Egresos Gastos Fijos' =
+			
+			SUM(fact_Gastos_Fijos_Proyectados[Monto_Proyectado])
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: e5bbef39-16e9-49dc-914e-3ff1c81196bb
+
+	measure 'Egresos Base Total' = [Egresos CxP] + [Egresos Gastos Fijos]
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: 046f441c-e162-47b6-abd5-68e0548258ac
+
+	measure dax_Dias_Retraso = SELECTEDVALUE(Param_Dias_Retraso_CxC[Param_Dias_Retraso_CxC], 0)
+		lineageTag: 7f33903b-3c74-4f3c-9c8c-6505998a6e52
+
+	measure dax_Pct_Impago = SELECTEDVALUE(Param_Pct_Impago[Param_Pct_Impago], 0)
+		lineageTag: c9f023bf-4652-473e-8310-1fd3dc0a9f7f
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure dax_Inc_Gastos = SELECTEDVALUE(Param_Inc_Gastos[Param_Inc_Gastos], 0)
+		lineageTag: d3f7063f-725e-4c2e-89a8-963ae8f14fda
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure 'Ingresos Estresados' =
+			-- El estrés (retraso + impago) sólo aplica a la cartera abierta; lo ya cobrado queda en su fecha real.
+			VAR D0 = MIN(dim_Calendario[Date])
+			VAR D1 = MAX(dim_Calendario[Date])
+			VAR Corte = [Fecha Corte]
+			VAR Retraso = [dax_Dias_Retraso]
+			VAR PctEfectivo = 1 - [dax_Pct_Impago]
+			RETURN
+			CALCULATE(
+			    SUMX(
+			        FILTER(fact_Cartera_CxC_CxP, fact_Cartera_CxC_CxP[Tipo] = "CxC" && fact_Cartera_CxC_CxP[Estatus] <> "Incobrable"),
+			        VAR EsPagado = fact_Cartera_CxC_CxP[Estatus] = "Pagado"
+			        VAR F = IF(EsPagado, fact_Cartera_CxC_CxP[Fecha_Pago_Real], MAX(fact_Cartera_CxC_CxP[Fecha_Vencimiento], Corte) + Retraso)
+			        RETURN IF(F >= D0 && F <= D1, IF(EsPagado, fact_Cartera_CxC_CxP[Monto_Total], fact_Cartera_CxC_CxP[Saldo_Pendiente] * PctEfectivo))
+			    ),
+			    REMOVEFILTERS(dim_Calendario)
+			)
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: 1ee9a88c-115d-4f86-ade2-726c148fd145
+
+	measure 'Egresos Estresados' =
+			-- El incremento sólo aplica a egresos posteriores al corte; lo ya pagado queda en su monto y fecha real.
+			VAR D0 = MIN(dim_Calendario[Date])
+			VAR D1 = MAX(dim_Calendario[Date])
+			VAR Corte = [Fecha Corte]
+			VAR Factor = 1 + [dax_Inc_Gastos]
+			VAR EgresosCxP =
+			    CALCULATE(
+			        SUMX(
+			            FILTER(fact_Cartera_CxC_CxP, fact_Cartera_CxC_CxP[Tipo] = "CxP"),
+			            VAR EsPagado = fact_Cartera_CxC_CxP[Estatus] = "Pagado"
+			            VAR F = IF(EsPagado, fact_Cartera_CxC_CxP[Fecha_Pago_Real], MAX(fact_Cartera_CxC_CxP[Fecha_Vencimiento], Corte))
+			            RETURN IF(F >= D0 && F <= D1, IF(EsPagado, fact_Cartera_CxC_CxP[Monto_Total], fact_Cartera_CxC_CxP[Saldo_Pendiente] * Factor))
+			        ),
+			        REMOVEFILTERS(dim_Calendario)
+			    )
+			VAR GastosFijos =
+			    SUMX(
+			        fact_Gastos_Fijos_Proyectados,
+			        fact_Gastos_Fijos_Proyectados[Monto_Proyectado] * IF(fact_Gastos_Fijos_Proyectados[Fecha_Programada] > Corte, Factor, 1)
+			    )
+			RETURN EgresosCxP + GastosFijos
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: 40aeb4d1-cd21-4c83-96f8-80535faed5e3
+
+	measure 'Caja Acumulada Estresada' =
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			RETURN
+			IF(
+			    ISBLANK(FechaGrafico),
+			    BLANK(),
+			    [Caja Inicial]
+			        + CALCULATE(
+			            COALESCE([Ingresos Estresados], 0) - COALESCE([Egresos Estresados], 0),
+			            REMOVEFILTERS(dim_Calendario),
+			            dim_Calendario[Date] <= FechaGrafico
+			        )
+			)
+		formatString: \$#,0.###############;-\$#,0.###############;\$#,0.###############
+		lineageTag: 29491d51-a917-49f0-8330-c15a730ad8df
+
+		annotation PBI_FormatHint = {"currencyCulture":"es-MX"}
+
+	measure 'Alerta Liquidez' =
+			
+			VAR MinimoCaja = [Minimo de Caja]
+			RETURN
+			IF(
+			    MinimoCaja < 0,
+			    "⚠️ RIESGO DE ILIQUIDEZ",
+			    "✅ POSICIÓN SANA"
+			)
+		lineageTag: 362257ac-6573-4d8f-bb21-a69f147a8191
+
+	measure dax_Pct_Descuento_PP = SELECTEDVALUE(Param_Pronto_Pago[Param_Pronto_Pago], 0)
+		lineageTag: 2520f435-3c01-4347-bd08-6963779ecd4f
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	measure dax_Dias_Adelanto_PP = IF([dax_Pct_Descuento_PP] > 0, [Valor de Param_Dias_Adelanto_PP], 0)
+		formatString: 0
+		lineageTag: 1bb63c9c-0802-4781-b656-85c42eb4f750
+
+	measure 'Costo Pronto Pago' =
+			-- Descuento sobre lo que realmente se cobraría: cartera abierta, sin incobrables, neta de impago
+			VAR SaldoCobrable =
+			    CALCULATE(
+			        SUM(fact_Cartera_CxC_CxP[Saldo_Pendiente]),
+			        fact_Cartera_CxC_CxP[Tipo] = "CxC",
+			        NOT fact_Cartera_CxC_CxP[Estatus] IN {"Pagado", "Incobrable"},
+			        REMOVEFILTERS(dim_Calendario)
+			    )
+			RETURN
+			    SaldoCobrable * (1 - [dax_Pct_Impago]) * [dax_Pct_Descuento_PP]
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: f4294fcb-8c79-4576-814d-e785c4331e41
+
+	measure 'Ingresos con Pronto Pago' =
+			-- Cartera abierta: retraso neto de adelanto, nunca antes del corte; monto neto de impago y descuento.
+			VAR D0 = MIN(dim_Calendario[Date])
+			VAR D1 = MAX(dim_Calendario[Date])
+			VAR Corte = [Fecha Corte]
+			VAR DiasNetos = [dax_Dias_Retraso] - [dax_Dias_Adelanto_PP]
+			VAR PctEfectivo = (1 - [dax_Pct_Impago]) * (1 - [dax_Pct_Descuento_PP])
+			RETURN
+			CALCULATE(
+			    SUMX(
+			        FILTER(fact_Cartera_CxC_CxP, fact_Cartera_CxC_CxP[Tipo] = "CxC" && fact_Cartera_CxC_CxP[Estatus] <> "Incobrable"),
+			        VAR EsPagado = fact_Cartera_CxC_CxP[Estatus] = "Pagado"
+			        VAR F = IF(EsPagado, fact_Cartera_CxC_CxP[Fecha_Pago_Real], MAX(MAX(fact_Cartera_CxC_CxP[Fecha_Vencimiento], Corte) + DiasNetos, Corte))
+			        RETURN IF(F >= D0 && F <= D1, IF(EsPagado, fact_Cartera_CxC_CxP[Monto_Total], fact_Cartera_CxC_CxP[Saldo_Pendiente] * PctEfectivo))
+			    ),
+			    REMOVEFILTERS(dim_Calendario)
+			)
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: 93f29c8f-2b9c-42a2-87e7-f904834fe5eb
+
+	measure 'Caja Acumulada con Pronto Pago' =
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			RETURN
+			IF(
+			    ISBLANK(FechaGrafico),
+			    BLANK(),
+			    [Caja Inicial]
+			        + CALCULATE(
+			            COALESCE([Ingresos con Pronto Pago], 0) - COALESCE([Egresos Estresados], 0),
+			            REMOVEFILTERS(dim_Calendario),
+			            dim_Calendario[Date] <= FechaGrafico
+			        )
+			)
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: 7d699ac0-d291-4283-9f49-40cbdb2f18c3
+
+	measure 'Evaluacion Tacita Pronto Pago' =
+			VAR Estado = [Estado Recomendacion]
+			VAR MinEst = [Minimo de Caja]
+			VAR MinPP = MINX(ALLSELECTED(dim_Calendario[Date]), [Caja Acumulada con Pronto Pago])
+			VAR Costo = [Costo Pronto Pago]
+			VAR Limite = [Valor de Param_Limite_Linea_Credito]
+			VAR HayDescuento = [dax_Pct_Descuento_PP] > 0
+			RETURN
+			SWITCH(
+			    Estado,
+			    0, "MANTENER: la caja resiste el escenario estresado; no se requiere ofrecer descuento.",
+			    1, "APLICAR PRONTO PAGO: evita la quiebra de caja con un costo de " & FORMAT(Costo, "$#,##0") & " en margen.",
+			    2, IF(HayDescuento, "EL PRONTO PAGO NO BASTA: aún con descuento la caja cae a " & FORMAT(MinPP, "$#,##0") & ". ", "")
+			        & "Cubrir el déficit de " & FORMAT(-MinEst, "$#,##0") & " con la línea de crédito (límite " & FORMAT(Limite, "$#,##0") & ").",
+			    "RIESGO CRÍTICO: el déficit de " & FORMAT(-MinEst, "$#,##0") & " supera la línea de crédito (" & FORMAT(Limite, "$#,##0") & "). Se requiere financiamiento adicional o renegociar pagos."
+			)
+		lineageTag: a0274ea1-1d0d-4537-9a3d-59889284cdc1
+
+	measure 'Minimo de Caja' =
+			
+			MINX(
+			    ALLSELECTED(dim_Calendario[Date]),
+			    [Caja Acumulada Estresada]
+			)
+		formatString: \$#,0.###############;(\$#,0.###############);\$#,0.###############
+		lineageTag: dc031e55-c6e9-4e87-a12f-8323460c6007
+
+	measure 'Fecha Quiebra Caja' =
+			
+			CALCULATE(
+			    MIN(dim_Calendario[Date]),
+			    FILTER(
+			        ALLSELECTED(dim_Calendario),
+			        [Caja Acumulada Estresada] < 0
+			    )
+			)
+		formatString: Short Date
+		lineageTag: 479d06b5-683f-4550-9bad-c6decc768c8b
+
+	measure 'Caja Acumulada Base' =
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			RETURN
+			IF(
+			    ISBLANK(FechaGrafico),
+			    BLANK(),
+			    [Caja Inicial]
+			        + CALCULATE(
+			            COALESCE([Ingresos Base], 0) - COALESCE([Egresos Base Total], 0),
+			            REMOVEFILTERS(dim_Calendario),
+			            dim_Calendario[Date] <= FechaGrafico
+			        )
+			)
+		formatString: \$#,0.###############;-\$#,0.###############;\$#,0.###############
+		lineageTag: da85c0db-7efa-444f-ada7-cfebc55cfb7d
+
+		annotation PBI_FormatHint = {"currencyCulture":"es-MX"}
+
+	measure 'Flujo Neto Base' = COALESCE([Ingresos Base], 0) - COALESCE([Egresos Base Total], 0)
+		formatString: \$#,0.###############;-\$#,0.###############;\$#,0.###############
+		lineageTag: 2e2f474c-aae5-473e-909b-7f75c29da6d3
+
+		annotation PBI_FormatHint = {"currencyCulture":"es-MX"}
+
+	measure 'Flujo Neto Estresado' = COALESCE([Ingresos Estresados], 0) - COALESCE([Egresos Estresados], 0)
+		formatString: \$#,0.###############;-\$#,0.###############;\$#,0.###############
+		lineageTag: c5a9529d-6a19-4a89-8cfc-c5af1621f78a
+
+		annotation PBI_FormatHint = {"currencyCulture":"es-MX"}
+
+	measure HTML_Verdict_Card =
+			
+			VAR EsRiesgo = [Minimo de Caja] < 0
+			VAR Color = IF(EsRiesgo, "#FF5D5D", "#35C7B0")
+			VAR Titulo = IF(EsRiesgo, "La caja se agota antes de cerrar el periodo.", "La posición de caja resiste el escenario actual.")
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;background:#111B30;border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:24px 26px;"">" &
+			"<div style=""display:inline-block;font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;letter-spacing:.02em;color:" & Color & ";border:1px solid " & Color & "55;border-radius:100px;padding:5px 12px;margin-bottom:14px;"">" & [Alerta Liquidez] & "</div>" &
+			"<div style=""font-family:Fraunces,serif;font-weight:600;font-size:28px;line-height:1.15;color:#EAEEF7;margin:0;"">" & Titulo & "</div>" &
+			"</div>"
+		displayFolder: HTML Content
+		lineageTag: 18c0788e-8d0a-46c2-885f-27f53cd54732
+
+	measure HTML_KPI_MinimoCaja =
+			
+			VAR EsRiesgo = [Minimo de Caja] < 0
+			VAR Color = IF(EsRiesgo, "#FF5D5D", "#35C7B0")
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px 20px;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#565F76;margin-bottom:10px;"">MÍNIMO DE CAJA</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;color:" & Color & ";"">" & FORMAT([Minimo de Caja], "$#,##0") & "</div>" &
+			"</div>"
+		displayFolder: HTML Content
+		lineageTag: 77047cd6-c1d7-48d9-a4b7-1cdac6530d66
+
+	measure HTML_KPI_FechaQuiebra =
+			
+			VAR Fecha = [Fecha Quiebra Caja]
+			VAR Texto = IF(ISBLANK(Fecha), "Sin ruptura proyectada", FORMAT(Fecha, "dd mmm yyyy"))
+			VAR Color = IF(ISBLANK(Fecha), "#35C7B0", "#FF5D5D")
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px 20px;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#565F76;margin-bottom:10px;"">FECHA DE QUIEBRA DE CAJA</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;color:" & Color & ";"">" & Texto & "</div>" &
+			"</div>"
+		displayFolder: HTML Content
+		lineageTag: 27e4ea60-ccd3-4977-97c4-16cd87d6f026
+
+	measure HTML_Recomendacion =
+			VAR Texto = [Evaluacion Tacita Pronto Pago]
+			VAR Estado = [Estado Recomendacion]
+			VAR Icono = SWITCH(Estado, 0, "🟢", 1, "🟡", 2, "🟠", "🔴")
+			VAR RGB = SWITCH(Estado, 0, "53,199,176", 1, "240,169,59", 2, "240,169,59", "255,93,93")
+			VAR BgColor = "rgba(" & RGB & ",0.06)"
+			VAR BorderColor = "rgba(" & RGB & ",0.35)"
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:26px 26px 22px;"">" &
+			"<div style=""display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;flex-wrap:wrap;gap:8px;"">" &
+			"<div style=""font-family:Fraunces,serif;font-weight:600;font-size:19px;color:#EAEEF7;"">Recomendación Ejecutiva</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:13px;color:#8C97AF;"">EVALUACIÓN TÁCTICA · PRONTO PAGO</div>" &
+			"</div>" &
+			"<div style=""border-radius:10px;padding:18px 20px;border:1px solid " & BorderColor & ";background:" & BgColor & ";display:flex;gap:14px;align-items:flex-start;"">" &
+			"<div style=""font-size:20px;line-height:1;"">" & Icono & "</div>" &
+			"<div style=""font-size:15px;line-height:1.6;color:#8C97AF;"">" & Texto & "</div>" &
+			"</div>" &
+			"<div style=""font-size:15px;color:#8C97AF;line-height:1.7;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.05);"">Compara el costo del descuento ofrecido contra el riesgo real de quedarse sin caja.</div>" &
+			"</div>"
+		displayFolder: HTML Content
+		lineageTag: c2e78097-7917-4c5c-9459-69796feeff79
+
+	measure HTML_KPI_Cards =
+			
+			VAR CajaFinal = [Caja Acumulada Base]
+			VAR MinCaja = [Minimo de Caja]
+			VAR ColorMin = IF(MinCaja < 0, "#FF5D5D", "#35C7B0")
+			VAR SubMin = IF(MinCaja < 0, "Cae por debajo de cero", "Nunca cruza cero")
+			VAR FechaQ = [Fecha Quiebra Caja]
+			VAR TextoFechaQ = IF(ISBLANK(FechaQ), "—", FORMAT(FechaQ,"dd mmm yyyy"))
+			VAR SubFechaQ = IF(ISBLANK(FechaQ), "Sin ruptura proyectada", "Semana con déficit")
+			VAR ColorFechaQ = IF(ISBLANK(FechaQ), "#35C7B0", "#FF5D5D")
+			VAR Gap = [Brecha CxC vs CxP (dias)]
+			VAR TextoGap = IF(Gap>=0,"+","") & FORMAT(Gap,"0.0") & " días"
+			
+			VAR Card1 =
+			"<div style=""background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px 20px 18px;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#EAEEF7;margin-bottom:10px;"">CAJA PROYECTADA</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;color:#EAEEF7;"">" & FORMAT(CajaFinal,"$#,##0") & "</div>" &
+			"<div style=""font-size:12.5px;color:#8C97AF;margin-top:6px;"">Escenario base, sin estrés</div></div>"
+			
+			VAR Card2 =
+			"<div style=""background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px 20px 18px;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#EAEEF7;margin-bottom:10px;"">MÍNIMO DE CAJA</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;color:" & ColorMin & ";"">" & FORMAT(MinCaja,"$#,##0") & "</div>" &
+			"<div style=""font-size:12.5px;color:#8C97AF;margin-top:6px;"">" & SubMin & "</div></div>"
+			
+			VAR Card3 =
+			"<div style=""background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px 20px 18px;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#EAEEF7;margin-bottom:10px;"">FECHA DE QUIEBRA DE CAJA</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;color:" & ColorFechaQ & ";"">" & TextoFechaQ & "</div>" &
+			"<div style=""font-size:12.5px;color:#8C97AF;margin-top:6px;"">" & SubFechaQ & "</div></div>"
+			
+			VAR Card4 =
+			"<div style=""background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:20px 20px 18px;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#EAEEF7;margin-bottom:10px;"">BRECHA CxC → CxP</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:600;color:#EAEEF7;"">" & TextoGap & "</div>" &
+			"<div style=""font-size:12.5px;color:#8C97AF;margin-top:6px;"">DSO " & FORMAT([DSO Real (dias)],"0.0") & "d − DPO " & FORMAT([DPO Real (dias)],"0.0") & "d</div></div>"
+			
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;"">" & Card1 & Card2 & Card3 & Card4 & "</div>"
+		displayFolder: HTML Content
+		lineageTag: 0558aabe-f8c5-4f0c-a279-54df132b300b
+
+	measure HTML_Bridge_CxC_CxP =
+			
+			VAR DSO = [DSO Real (dias)]
+			VAR DPO = [DPO Real (dias)]
+			VAR Gap = [Brecha CxC vs CxP (dias)]
+			VAR RefMax = MAX(60, ROUNDUP(MAX(DSO,DPO)*1.2, 0))
+			VAR WidthDSO = FORMAT(DIVIDE(DSO,RefMax)*100,"0")
+			VAR WidthDPO = FORMAT(DIVIDE(DPO,RefMax)*100,"0")
+			VAR ColorGap = IF(Gap >= 0, "#FF5D5D", "#35C7B0")
+			VAR BgGap = IF(Gap >= 0, "rgba(255,93,93,0.10)", "rgba(53,199,176,0.10)")
+			VAR BorderGap = IF(Gap >= 0, "rgba(255,93,93,0.35)", "rgba(53,199,176,0.35)")
+			VAR TextoGap = IF(Gap >= 0, "La empresa financia a sus clientes " & FORMAT(Gap,"0.0") & " días más de lo que le financian sus proveedores", "La empresa cobra " & FORMAT(ABS(Gap),"0.0") & " días antes de lo que paga a sus proveedores")
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:26px 26px 22px;"">" &
+			"<div style=""display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;"">" &
+			"<div style=""font-family:Fraunces,serif;font-weight:600;font-size:19px;color:#EAEEF7;"">Cuentas por Cobrar vs. por Pagar</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:14px;color:#8C97AF;"">DÍAS PROMEDIO · REAL</div>" &
+			"</div>" &
+			"<div style=""margin-bottom:20px;"">" &
+			"<div style=""display:flex;justify-content:space-between;font-size:15px;color:#8C97AF;margin-bottom:7px;"">Días Promedio de Cobro (CxC) <b style=""font-family:'JetBrains Mono',monospace;color:#EAEEF7;font-weight:600;"">" & FORMAT(DSO,"0.0") & " días</b></div>" &
+			"<div style=""height:10px;background:#0D1526;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.05);""><div style=""height:100%;width:" & WidthDSO & "%;border-radius:6px;background:linear-gradient(90deg,#5B8DEF,#7FA6F2);""></div></div>" &
+			"</div>" &
+			"<div style=""margin-bottom:4px;"">" &
+			"<div style=""display:flex;justify-content:space-between;font-size:15px;color:#8C97AF;margin-bottom:7px;"">Días Promedio de Pago (CxP) <b style=""font-family:'JetBrains Mono',monospace;color:#EAEEF7;font-weight:600;"">" & FORMAT(DPO,"0.0") & " días</b></div>" &
+			"<div style=""height:10px;background:#0D1526;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.05);""><div style=""height:100%;width:" & WidthDPO & "%;border-radius:6px;background:linear-gradient(90deg,#35C7B0,#5FE0C9);""></div></div>" &
+			"</div>" &
+			"<div style=""margin-top:16px;padding:14px 16px;border-radius:10px;background:" & BgGap & ";border:1px solid " & BorderGap & ";font-size:16px;color:#8C97AF;display:flex;justify-content:space-between;align-items:center;gap:10px;"">" & TextoGap & "<b style=""font-family:'JetBrains Mono',monospace;color:" & ColorGap & ";font-size:16px;white-space:nowrap;"">" & IF(Gap>=0,"+","") & FORMAT(Gap,"0.0") & "d</b></div>" &
+			"<div style=""font-size:15px;color:#8C97AF;margin-top:12px;"">Calculado sobre " & CALCULATE(COUNTROWS(fact_Cartera_CxC_CxP), fact_Cartera_CxC_CxP[Tipo]="CxC", fact_Cartera_CxC_CxP[Estatus]="Pagado") & " facturas cobradas y " & CALCULATE(COUNTROWS(fact_Cartera_CxC_CxP), fact_Cartera_CxC_CxP[Tipo]="CxP", fact_Cartera_CxC_CxP[Estatus]="Pagado") & " pagos realizados (Fecha_Pago_Real).</div>" &
+			"</div>"
+		displayFolder: HTML Content
+		lineageTag: 4f21b902-308a-44d9-8658-540f35c6fbcf
+
+	measure HTML_Risk_Matrix =
+			-- 1. Historial de facturas CxC resueltas (Pagado / Incobrable): mora y si fue mala
+			VAR Resueltas =
+			    ADDCOLUMNS(
+			        CALCULATETABLE(
+			            fact_Cartera_CxC_CxP,
+			            fact_Cartera_CxC_CxP[Tipo] = "CxC",
+			            fact_Cartera_CxC_CxP[Estatus] IN {"Pagado", "Incobrable"},
+			            REMOVEFILTERS(dim_Calendario)
+			        ),
+			        "@Mora",
+			            VAR FV = fact_Cartera_CxC_CxP[Fecha_Vencimiento]
+			            VAR FF = IF(fact_Cartera_CxC_CxP[Estatus] = "Pagado", fact_Cartera_CxC_CxP[Fecha_Pago_Real], TODAY())
+			            RETURN MAX(0, DATEDIFF(FV, FF, DAY)),
+			        "@Malo", IF(fact_Cartera_CxC_CxP[Estatus] = "Incobrable", 1, 0)
+			    )
+			-- 2. Cartera abierta: mora al día de hoy
+			VAR Abiertas =
+			    ADDCOLUMNS(
+			        CALCULATETABLE(
+			            fact_Cartera_CxC_CxP,
+			            fact_Cartera_CxC_CxP[Tipo] = "CxC",
+			            fact_Cartera_CxC_CxP[Saldo_Pendiente] > 0,
+			            REMOVEFILTERS(dim_Calendario)
+			        ),
+			        "@Mora", MAX(0, DATEDIFF(fact_Cartera_CxC_CxP[Fecha_Vencimiento], TODAY(), DAY))
+			    )
+			-- 3. Tramos de mora
+			VAR Tramos =
+			    DATATABLE(
+			        "Id", INTEGER, "Tramo", STRING, "Lo", INTEGER, "Hi", INTEGER, "Color", STRING,
+			        {
+			            {1, "0–30 días", 0, 30, "#35C7B0"},
+			            {2, "31–60 días", 31, 60, "#5B8DEF"},
+			            {3, "61–90 días", 61, 90, "#F0A93B"},
+			            {4, "90+ días", 91, 100000, "#FF5D5D"}
+			        }
+			    )
+			VAR Stats =
+			    ADDCOLUMNS(
+			        Tramos,
+			        "@N", VAR lo = [Lo] VAR hi = [Hi] RETURN COUNTROWS(FILTER(Resueltas, [@Mora] >= lo && [@Mora] <= hi)) + 0,
+			        "@B", VAR lo = [Lo] VAR hi = [Hi] RETURN SUMX(FILTER(Resueltas, [@Mora] >= lo && [@Mora] <= hi), [@Malo]) + 0,
+			        "@S", VAR lo = [Lo] VAR hi = [Hi] RETURN SUMX(FILTER(Abiertas, [@Mora] >= lo && [@Mora] <= hi), fact_Cartera_CxC_CxP[Saldo_Pendiente]) + 0
+			    )
+			VAR SMax = MAX(MAXX(Stats, [@S]), 1)
+			-- 4. Geometría (viewBox 860 x 280): columnas iguales alineadas con la franja inferior
+			VAR Geo =
+			    ADDCOLUMNS(
+			        Stats,
+			        "@P", DIVIDE([@B], [@N], 0),
+			        "@CX", ROUND(([Id] - 0.5) * 215, 0),
+			        "@CY", ROUND(236 - DIVIDE([@B], [@N], 0) * 196, 0),
+			        "@R", ROUND(IF([@S] = 0, 9, 11 + SQRT([@S] / SMax) * 29), 0)
+			    )
+			VAR Mono = "font-family:JetBrains Mono,monospace"
+			VAR Grid =
+			    CONCATENATEX(
+			        {0, 0.25, 0.5, 0.75, 1},
+			        VAR y = ROUND(236 - [Value] * 196, 0)
+			        RETURN
+			            "<line x1='0' x2='860' y1='" & y & "' y2='" & y & "' stroke='rgba(255,255,255,0.06)' stroke-width='1'/>" &
+			            "<text x='6' y='" & (y - 5) & "' fill='#565F76' font-size='11' style='" & Mono & "'>" & FORMAT([Value], "0%") & "</text>",
+			        ""
+			    )
+			VAR Bubbles =
+			    CONCATENATEX(
+			        Geo,
+			        IF(
+			            [@N] = 0,
+			            "<circle cx='" & [@CX] & "' cy='" & [@CY] & "' r='" & [@R] & "' fill='" & [Color] & "' fill-opacity='0.18' stroke='" & [Color] & "' stroke-width='1.5' stroke-dasharray='4 4'/>" &
+			            "<text x='" & ([@CX] + [@R] + 10) & "' y='" & ([@CY] - 2) & "' fill='#8C97AF' font-size='13' font-weight='600' style='" & Mono & "'>s/historial</text>" &
+			            "<text x='" & ([@CX] + [@R] + 10) & "' y='" & ([@CY] + 14) & "' fill='#565F76' font-size='11' style='" & Mono & "'>n=0</text>",
+			            "<circle cx='" & [@CX] & "' cy='" & [@CY] & "' r='" & [@R] & "' fill='" & [Color] & "' fill-opacity='0.8' stroke='" & [Color] & "' stroke-width='1.5'/>" &
+			            "<text x='" & ([@CX] + [@R] + 10) & "' y='" & ([@CY] - 2) & "' fill='#EAEEF7' font-size='15' font-weight='700' style='" & Mono & "'>" & FORMAT([@P], "0%") & "</text>" &
+			            "<text x='" & ([@CX] + [@R] + 10) & "' y='" & ([@CY] + 14) & "' fill='#565F76' font-size='11' style='" & Mono & "'>n=" & [@N] & "</text>"
+			        ),
+			        "", [Id], ASC
+			    )
+			VAR Svg =
+			    "<svg viewBox='0 0 860 280' style='width:100%;height:auto;display:block;overflow:visible'>" &
+			    "<defs><linearGradient id='rg' x1='0%' y1='100%' x2='100%' y2='0%'><stop offset='0%' stop-color='#35C7B0' stop-opacity='0.06'/><stop offset='100%' stop-color='#FF5D5D' stop-opacity='0.12'/></linearGradient></defs>" &
+			    "<rect x='0' y='0' width='860' height='280' fill='url(#rg)' rx='8'/>" &
+			    Grid & Bubbles &
+			    "</svg>"
+			VAR Strip =
+			    CONCATENATEX(
+			        Geo,
+			        "<div style=""background:#0D1526;border:1px solid rgba(255,255,255,.05);border-top:2px solid " & [Color] & ";border-radius:10px;padding:10px 12px;"">" &
+			        "<div style=""" & Mono & ";font-size:12px;color:#EAEEF7;font-weight:600;margin-bottom:4px;"">" & [Tramo] & "</div>" &
+			        "<div style=""" & Mono & ";font-size:11px;color:#8C97AF;"">Saldo " & IF([@S] >= 1000000, FORMAT([@S] / 1000000, "$0.0") & "M", FORMAT([@S] / 1000, "$0") & "k") & "</div>" &
+			        "</div>",
+			        "", [Id], ASC
+			    )
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:22px 24px 18px;"">" &
+			"<div style=""display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;flex-wrap:wrap;gap:8px;"">" &
+			"<div style=""font-family:Fraunces,serif;font-weight:600;font-size:19px;color:#EAEEF7;"">Matriz de Riesgo de Cartera</div>" &
+			"<div style=""" & Mono & ";font-size:11px;color:#565F76;"">Mora vs. probabilidad de impago</div>" &
+			"</div>" &
+			Svg &
+			"<div style=""display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;"">" & Strip & "</div>" &
+			"<div style=""font-size:12px;color:#565F76;line-height:1.6;margin-top:12px;"">Tamaño = saldo abierto por tramo de mora. Altura = facturas incobrables / facturas resueltas del tramo (n = muestra).</div>" &
+			"</div>"
+		displayFolder: HTML Content
+		lineageTag: 3a4c9d24-7e80-470d-85a3-0a2ebbc3d051
+
+	measure 'DSO Real (dias)' =
+			
+			AVERAGEX(
+			    FILTER(fact_Cartera_CxC_CxP, fact_Cartera_CxC_CxP[Tipo]="CxC" && fact_Cartera_CxC_CxP[Estatus]="Pagado"),
+			    DATEDIFF(fact_Cartera_CxC_CxP[Fecha_Emision], fact_Cartera_CxC_CxP[Fecha_Pago_Real], DAY)
+			)
+		formatString: 0.0
+		displayFolder: Riesgo de Cartera
+		lineageTag: a716d25f-7f71-429b-8b7e-9173fc171242
+
+	measure 'DPO Real (dias)' =
+			
+			AVERAGEX(
+			    FILTER(fact_Cartera_CxC_CxP, fact_Cartera_CxC_CxP[Tipo]="CxP" && fact_Cartera_CxC_CxP[Estatus]="Pagado"),
+			    DATEDIFF(fact_Cartera_CxC_CxP[Fecha_Emision], fact_Cartera_CxC_CxP[Fecha_Pago_Real], DAY)
+			)
+		formatString: 0.0
+		displayFolder: Riesgo de Cartera
+		lineageTag: 43f9ac1c-5237-47dc-af3d-d5e8ed0cdb71
+
+	measure 'Brecha CxC vs CxP (dias)' = [DSO Real (dias)] - [DPO Real (dias)]
+		formatString: 0.0
+		displayFolder: Riesgo de Cartera
+		lineageTag: c7e3df7f-a3b9-496d-b7dc-f9ae188cef8a
+
+	measure 'Ingresos Acumulada Base' =
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			RETURN
+			IF(
+			    ISBLANK(FechaGrafico),
+			    BLANK(),
+			    [Caja Inicial] + CALCULATE(COALESCE([Ingresos Base], 0), REMOVEFILTERS(dim_Calendario), dim_Calendario[Date] <= FechaGrafico)
+			)
+		formatString: \$#,0.###############;-\$#,0.###############;\$#,0.###############
+		lineageTag: e86fe8c0-5732-419b-9cbe-e017d3a75eed
+
+		annotation PBI_FormatHint = {"currencyCulture":"es-MX"}
+
+	measure HTML_Eyebrow = ```
+			VAR Ini = MIN(dim_Calendario[Date])
+			VAR Fin = MAX(dim_Calendario[Date])
+			VAR Periodo = UPPER(FORMAT(Ini, "mmm")) & "–" & UPPER(FORMAT(Fin, "mmm")) & " " & YEAR(Fin)
+			VAR Corte = UPPER(FORMAT([Fecha Corte], "dd mmm yyyy"))
+			RETURN
+			"
+			<style>
+			    .eyebrow-container {
+			        font-family: 'JetBrains Mono', 'Segoe UI', monospace;
+			        font-size: 30px;
+			        font-weight: 500;
+			        letter-spacing: 0.14em;
+			        color: #8C97AF;
+			        text-transform: uppercase;
+			        display: flex;
+			        align-items: center;
+			        gap: 10px;
+			    }
+			    .dot {
+			        width: 10px;
+			        height: 10px;
+			        background-color: #35C7B0;
+			        border-radius: 50%;
+			        display: inline-block;
+			        box-shadow: 0 0 8px #35C7B0;
+			    }
+			    .sep {
+			        color: rgba(255, 255, 255, 0.15);
+			    }
+			</style>
+			<div class='eyebrow-container'>
+			    <span class='dot'></span>
+			    STRESS TEST REPORT 
+			    <span class='sep'>·</span> 
+			    TESORERÍA &amp; RIESGO DE LIQUIDEZ 
+			    <span class='sep'>·</span> 
+			    " & Periodo & "
+			    <span class='sep'>·</span> 
+			    CORTE " & Corte & "
+			</div>
+			"
+			```
+		displayFolder: HTML Content
+		lineageTag: e75fa77e-318b-4a28-aed6-943d97bb1ef3
+
+	measure 'Egresos Acumulados Base' =
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			RETURN
+			IF(
+			    ISBLANK(FechaGrafico),
+			    BLANK(),
+			    [Caja Inicial] - CALCULATE(COALESCE([Egresos Base Total], 0), REMOVEFILTERS(dim_Calendario), dim_Calendario[Date] <= FechaGrafico)
+			)
+		displayFolder: Diagnostico Modelo
+		lineageTag: aa8768b9-1c24-436f-aa53-587c0a4e6d8c
+
+	measure 'Ingresos Acumulados Estresados' =
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			RETURN
+			IF(
+			    ISBLANK(FechaGrafico),
+			    BLANK(),
+			    CALCULATE([Ingresos Estresados], REMOVEFILTERS(dim_Calendario), dim_Calendario[Date] <= FechaGrafico)
+			)
+		displayFolder: Diagnostico Modelo
+		lineageTag: 6f51db26-cce2-4bc8-88b1-2f78f824fa47
+
+	measure 'Egresos Acumulados Estresados' =
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			RETURN
+			IF(
+			    ISBLANK(FechaGrafico),
+			    BLANK(),
+			    CALCULATE([Egresos Estresados], REMOVEFILTERS(dim_Calendario), dim_Calendario[Date] <= FechaGrafico)
+			)
+		displayFolder: Diagnostico Modelo
+		lineageTag: 3f6470f7-08cf-475d-a6ac-e5e4e395d39d
+
+	measure 'Ingresos Acumulados con Pronto Pago' =
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			RETURN
+			IF(
+			    ISBLANK(FechaGrafico),
+			    BLANK(),
+			    CALCULATE([Ingresos con Pronto Pago], REMOVEFILTERS(dim_Calendario), dim_Calendario[Date] <= FechaGrafico)
+			)
+		displayFolder: Diagnostico Modelo
+		lineageTag: f1b21e36-9539-4f17-be43-10df18bf555a
+
+	measure 'Linea de Credito Dispuesta Acumulada' =
+			
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			VAR TablaFechas = CALCULATETABLE(VALUES(dim_Calendario[Date]), ALL(dim_Calendario), dim_Calendario[Date] <= FechaGrafico)
+			VAR PeorSaldoHastaHoy = MINX(TablaFechas, CALCULATE([Caja Acumulada Estresada]))
+			VAR NecesidadMaxima = MAX(0, -PeorSaldoHastaHoy)
+			RETURN
+			    IF(
+			        ISBLANK(FechaGrafico),
+			        BLANK(),
+			        MIN([Valor de Param_Limite_Linea_Credito], NecesidadMaxima)
+			    )
+		displayFolder: Linea de Credito
+		lineageTag: 8638efd1-a681-49bd-a8af-67c27d2e57a3
+
+	measure 'Interes Acumulado Linea de Credito' =
+			
+			VAR FechaGrafico = MAX(dim_Calendario[Date])
+			VAR TablaFechas = CALCULATETABLE(VALUES(dim_Calendario[Date]), ALL(dim_Calendario), dim_Calendario[Date] <= FechaGrafico)
+			VAR TasaDiaria = [Valor de Param_Tasa_Interes_Anual] / 365
+			RETURN
+			    IF(
+			        ISBLANK(FechaGrafico),
+			        BLANK(),
+			        SUMX(TablaFechas, CALCULATE([Linea de Credito Dispuesta Acumulada]) * TasaDiaria)
+			    )
+		displayFolder: Linea de Credito
+		lineageTag: 7feaa142-a48e-4a18-90b8-8df4435c457f
+
+	measure 'Caja Acumulada Estresada con Linea de Credito' = [Caja Acumulada Estresada] + [Linea de Credito Dispuesta Acumulada] - [Interes Acumulado Linea de Credito]
+		displayFolder: Linea de Credito
+		lineageTag: f16b8caa-72bf-4dad-bb0a-6238b6283b12
+
+	measure 'Minimo de Caja con Linea de Credito' = MINX(ALLSELECTED(dim_Calendario[Date]), [Caja Acumulada Estresada con Linea de Credito])
+		displayFolder: Linea de Credito
+		lineageTag: d5b74251-a7c6-432c-b059-2e49b9663aa9
+
+	measure 'Fecha Quiebra Caja con Linea de Credito' =
+			
+			CALCULATE(
+			    MIN(dim_Calendario[Date]),
+			    FILTER(ALLSELECTED(dim_Calendario), [Caja Acumulada Estresada con Linea de Credito] < 0)
+			)
+		displayFolder: Linea de Credito
+		lineageTag: 9980fb87-5b31-46ba-82ed-6b0a93c7d9d8
+
+	measure 'Alerta Liquidez con Linea de Credito' =
+			
+			VAR MinimoCaja = [Minimo de Caja con Linea de Credito]
+			RETURN
+			IF(
+			    MinimoCaja < 0,
+			    "⚠️ RIESGO DE ILIQUIDEZ (línea insuficiente)",
+			    "✅ CUBIERTO POR LÍNEA DE CRÉDITO"
+			)
+		displayFolder: Linea de Credito
+		lineageTag: fa29fd27-cf70-4d20-b8f6-757b8852b87d
+
+	measure 'Disposicion Maxima Requerida' = [Linea de Credito Dispuesta Acumulada]
+		displayFolder: Linea de Credito
+		lineageTag: 835a9a49-0e7c-4396-88a4-bceb5c6cc339
+
+	measure HTML_Comparacion_Escenarios =
+			
+			VAR CajaBase = [Caja Acumulada Base]
+			VAR CajaEst = [Caja Acumulada Estresada]
+			VAR CajaPP = [Caja Acumulada con Pronto Pago]
+			
+			VAR Card1 =
+			"<div style=""background:#0D1526;border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:14px 14px 12px;border-top:2px solid #5B8DEF;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#565F76;margin-bottom:8px;"">CAJA FINAL · BASE</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;color:#5B8DEF;"">" & FORMAT(CajaBase,"$#,##0") & "</div></div>"
+			
+			VAR Card2 =
+			"<div style=""background:#0D1526;border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:14px 14px 12px;border-top:2px solid #F0A93B;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#565F76;margin-bottom:8px;"">CAJA FINAL · ESTRESADA</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;color:#F0A93B;"">" & FORMAT(CajaEst,"$#,##0") & "</div></div>"
+			
+			VAR Card3 =
+			"<div style=""background:#0D1526;border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:14px 14px 12px;border-top:2px solid #35C7B0;"">" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#565F76;margin-bottom:8px;"">CAJA FINAL · CON PRONTO PAGO</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:600;color:#35C7B0;"">" & FORMAT(CajaPP,"$#,##0") & "</div></div>"
+			
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:26px 26px 22px;"">" &
+			"<div style=""display:flex;justify-content:space-between;align-items:baseline;margin-bottom:18px;"">" &
+			"<div style=""font-family:Fraunces,serif;font-weight:600;font-size:19px;color:#EAEEF7;"">Comparación de Escenarios</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:11px;color:#565F76;"">CAJA PROYECTADA AL CIERRE</div>" &
+			"</div>" &
+			"<div style=""display:grid;grid-template-columns:repeat(3,1fr);gap:12px;"">" & Card1 & Card2 & Card3 & "</div>" &
+			"</div>"
+		displayFolder: HTML Content
+		lineageTag: 7f73b71c-f6ae-49c6-bcac-faae5b67d743
+
+	measure HTML_Banner_CobranzaVsEgresos =
+			
+			VAR Facturado_V = CALCULATE(SUM(fact_Cartera_CxC_CxP[Monto_Total]), fact_Cartera_CxC_CxP[Tipo]="CxC", REMOVEFILTERS(dim_Calendario))
+			VAR Cobrado_V   = CALCULATE(SUM(fact_Cartera_CxC_CxP[Monto_Total]), fact_Cartera_CxC_CxP[Tipo]="CxC", fact_Cartera_CxC_CxP[Estatus]="Pagado", REMOVEFILTERS(dim_Calendario))
+			VAR Egresos_V   = CALCULATE([Egresos Base Total], REMOVEFILTERS(dim_Calendario))
+			VAR Flotante_V  = CALCULATE(SUM(fact_Cartera_CxC_CxP[Saldo_Pendiente]), fact_Cartera_CxC_CxP[Tipo]="CxC", REMOVEFILTERS(dim_Calendario))
+			
+			// 1. FECHAS
+			VAR UltimaFecha   = CALCULATE(MAX(fact_Cartera_CxC_CxP[Fecha_Pago_Real]), fact_Cartera_CxC_CxP[Estatus]="Pagado", REMOVEFILTERS(dim_Calendario))
+			VAR MesActual     = MONTH(UltimaFecha)
+			VAR AnioActual    = YEAR(UltimaFecha)
+			VAR InicioMesAct  = DATE(AnioActual, MesActual, 1)
+			VAR FinMesAct     = EOMONTH(InicioMesAct, 0)
+			VAR InicioMesAnt  = EDATE(InicioMesAct, -1)
+			VAR FinMesAnt     = EOMONTH(InicioMesAnt, 0)
+			VAR FechaFmt      = FORMAT(UltimaFecha, "DD MMM YYYY")
+			
+			VAR NombreMes    = SWITCH(MesActual, 1,"Ene",2,"Feb",3,"Mar",4,"Abr",5,"May",6,"Jun", 7,"Jul",8,"Ago",9,"Sep",10,"Oct",11,"Nov",12,"Dic","")
+			VAR MesAntNum    = MONTH(InicioMesAnt)
+			VAR NombreMesAnt = SWITCH(MesAntNum, 1,"Ene",2,"Feb",3,"Mar",4,"Abr",5,"May",6,"Jun", 7,"Jul",8,"Ago",9,"Sep",10,"Oct",11,"Nov",12,"Dic","")
+			
+			// 2. METRICAS MENSUALES (fechas explicitas, sin depender de filtro ambiental)
+			VAR FacM    = CALCULATE(SUM(fact_Cartera_CxC_CxP[Monto_Total]), fact_Cartera_CxC_CxP[Tipo]="CxC", FILTER(ALL(fact_Cartera_CxC_CxP[Fecha_Emision]), fact_Cartera_CxC_CxP[Fecha_Emision]>=InicioMesAct && fact_Cartera_CxC_CxP[Fecha_Emision]<=FinMesAct))
+			VAR FacMAnt = CALCULATE(SUM(fact_Cartera_CxC_CxP[Monto_Total]), fact_Cartera_CxC_CxP[Tipo]="CxC", FILTER(ALL(fact_Cartera_CxC_CxP[Fecha_Emision]), fact_Cartera_CxC_CxP[Fecha_Emision]>=InicioMesAnt && fact_Cartera_CxC_CxP[Fecha_Emision]<=FinMesAnt))
+			
+			VAR CobM    = CALCULATE(SUM(fact_Cartera_CxC_CxP[Monto_Total]), fact_Cartera_CxC_CxP[Tipo]="CxC", fact_Cartera_CxC_CxP[Estatus]="Pagado", FILTER(ALL(fact_Cartera_CxC_CxP[Fecha_Pago_Real]), fact_Cartera_CxC_CxP[Fecha_Pago_Real]>=InicioMesAct && fact_Cartera_CxC_CxP[Fecha_Pago_Real]<=FinMesAct))
+			VAR CobMAnt = CALCULATE(SUM(fact_Cartera_CxC_CxP[Monto_Total]), fact_Cartera_CxC_CxP[Tipo]="CxC", fact_Cartera_CxC_CxP[Estatus]="Pagado", FILTER(ALL(fact_Cartera_CxC_CxP[Fecha_Pago_Real]), fact_Cartera_CxC_CxP[Fecha_Pago_Real]>=InicioMesAnt && fact_Cartera_CxC_CxP[Fecha_Pago_Real]<=FinMesAnt))
+			
+			VAR EgrCxPM    = CALCULATE(SUM(fact_Cartera_CxC_CxP[Monto_Total]), fact_Cartera_CxC_CxP[Tipo]="CxP", FILTER(ALL(fact_Cartera_CxC_CxP[Fecha_Vencimiento]), fact_Cartera_CxC_CxP[Fecha_Vencimiento]>=InicioMesAct && fact_Cartera_CxC_CxP[Fecha_Vencimiento]<=FinMesAct))
+			VAR EgrGFM     = CALCULATE(SUM(fact_Gastos_Fijos_Proyectados[Monto_Proyectado]), FILTER(ALL(fact_Gastos_Fijos_Proyectados[Fecha_Programada]), fact_Gastos_Fijos_Proyectados[Fecha_Programada]>=InicioMesAct && fact_Gastos_Fijos_Proyectados[Fecha_Programada]<=FinMesAct))
+			VAR EgrM       = EgrCxPM + EgrGFM
+			VAR EgrCxPMAnt = CALCULATE(SUM(fact_Cartera_CxC_CxP[Monto_Total]), fact_Cartera_CxC_CxP[Tipo]="CxP", FILTER(ALL(fact_Cartera_CxC_CxP[Fecha_Vencimiento]), fact_Cartera_CxC_CxP[Fecha_Vencimiento]>=InicioMesAnt && fact_Cartera_CxC_CxP[Fecha_Vencimiento]<=FinMesAnt))
+			VAR EgrGFMAnt  = CALCULATE(SUM(fact_Gastos_Fijos_Proyectados[Monto_Proyectado]), FILTER(ALL(fact_Gastos_Fijos_Proyectados[Fecha_Programada]), fact_Gastos_Fijos_Proyectados[Fecha_Programada]>=InicioMesAnt && fact_Gastos_Fijos_Proyectados[Fecha_Programada]<=FinMesAnt))
+			VAR EgrMAnt    = EgrCxPMAnt + EgrGFMAnt
+			
+			// 3. RATIOS GLOBALES Y MENSUALES
+			VAR R1     = DIVIDE(Cobrado_V, Facturado_V, 0)
+			VAR R2     = DIVIDE(Egresos_V, Cobrado_V,   0)
+			VAR R3     = DIVIDE(Cobrado_V, Egresos_V,   0)
+			
+			VAR R1M    = DIVIDE(CobM,    FacM,    0)
+			VAR R1MAnt = DIVIDE(CobMAnt, FacMAnt, 0)
+			VAR R2M    = DIVIDE(EgrM,    CobM,    0)
+			VAR R2MAnt = DIVIDE(EgrMAnt, CobMAnt, 0)
+			VAR R3M    = DIVIDE(CobM,    EgrM,    0)
+			VAR R3MAnt = DIVIDE(CobMAnt, EgrMAnt, 0)
+			
+			VAR R1Tend = R1M - R1MAnt
+			VAR R2Tend = R2M - R2MAnt
+			VAR R3Tend = R3M - R3MAnt
+			
+			// 4. DERIVADOS
+			VAR PctFlotante = DIVIDE(Flotante_V, Facturado_V, 0)
+			VAR BrechaCobro = Cobrado_V - Facturado_V
+			VAR BrechaFlujo = Cobrado_V - Egresos_V
+			
+			VAR VarFacMoM = DIVIDE(FacM - FacMAnt, ABS(FacMAnt), 0)
+			VAR VarCobMoM = DIVIDE(CobM - CobMAnt, ABS(CobMAnt), 0)
+			VAR VarEgrMoM = DIVIDE(EgrM - EgrMAnt, ABS(EgrMAnt), 0)
+			
+			VAR R2Safe      = IF(R2 = 0, 1, R2)
+			VAR InvR2       = MIN(DIVIDE(1, R2Safe, 0), 5)
+			VAR Divergencia = ABS(R1 - InvR2)
+			VAR HayDiverg   = IF(Divergencia > 0.25 && R1 >= 0.60, 1, 0)
+			
+			// 5. BARRAS VISUALES
+			VAR MaxTop    = MAX(MAX(Facturado_V, Cobrado_V), Egresos_V)
+			VAR BarFacTop = FORMAT(MIN(DIVIDE(Facturado_V, MaxTop, 0) * 100, 100), "0")
+			VAR BarCobTop = FORMAT(MIN(DIVIDE(Cobrado_V,   MaxTop, 0) * 100, 100), "0")
+			VAR BarEgrTop = FORMAT(MIN(DIVIDE(Egresos_V,   MaxTop, 0) * 100, 100), "0")
+			
+			VAR MaxR1     = MAX(Facturado_V, Cobrado_V)
+			VAR BarFacR1  = FORMAT(MIN(DIVIDE(Facturado_V, MaxR1, 0) * 100, 100), "0")
+			VAR BarCobR1  = FORMAT(MIN(DIVIDE(Cobrado_V,   MaxR1, 0) * 100, 100), "0")
+			
+			VAR MaxR2     = MAX(Egresos_V, Cobrado_V)
+			VAR BarEgrR2  = FORMAT(MIN(DIVIDE(Egresos_V, MaxR2, 0) * 100, 100), "0")
+			VAR BarCobR2  = FORMAT(MIN(DIVIDE(Cobrado_V, MaxR2, 0) * 100, 100), "0")
+			
+			VAR CobRatio  = DIVIDE(Cobrado_V, Egresos_V, 0)
+			VAR BarCob3   = FORMAT(MIN(CobRatio * 100, 100), "0")
+			VAR BarSinCob = FORMAT(MAX(100 - CobRatio * 100, 0), "0")
+			
+			// 6. ESTILOS CONDICIONALES
+			VAR N1 = SWITCH(TRUE(), R1 >= 0.90, "OPTIMO",    R1 >= 0.70, "EFICIENTE", R1 >= 0.50, "TENSION",  "CRITICO")
+			VAR C1 = SWITCH(TRUE(), R1 >= 0.90, "#3B6D11",   R1 >= 0.70, "#185FA5",   R1 >= 0.50, "#854F0B",  "#A32D2D")
+			VAR B1 = SWITCH(TRUE(), R1 >= 0.90, "#EAF3DE",   R1 >= 0.70, "#E6F1FB",   R1 >= 0.50, "#FAEEDA",  "#FCEBEB")
+			VAR E1 = SWITCH(TRUE(), R1 >= 0.90, "#97C459",   R1 >= 0.70, "#85B7EB",   R1 >= 0.50, "#EF9F27",  "#F09595")
+			
+			VAR N2 = SWITCH(TRUE(), R2 <= 0.85, "HOLGADA",   R2 <= 1.00, "NORMAL",    R2 <= 1.20, "AJUSTADA", "EXCESO")
+			VAR C2 = SWITCH(TRUE(), R2 <= 0.85, "#3B6D11",   R2 <= 1.00, "#185FA5",   R2 <= 1.20, "#854F0B",  "#A32D2D")
+			VAR B2 = SWITCH(TRUE(), R2 <= 0.85, "#EAF3DE",   R2 <= 1.00, "#E6F1FB",   R2 <= 1.20, "#FAEEDA",  "#FCEBEB")
+			VAR E2 = SWITCH(TRUE(), R2 <= 0.85, "#97C459",   R2 <= 1.00, "#85B7EB",   R2 <= 1.20, "#EF9F27",  "#F09595")
+			
+			VAR N3 = SWITCH(TRUE(), R3 >= 1.00, "COMPLETA",  R3 >= 0.85, "BUENA",     R3 >= 0.70, "PARCIAL",  "INSUF.")
+			VAR C3 = SWITCH(TRUE(), R3 >= 1.00, "#3B6D11",   R3 >= 0.85, "#185FA5",   R3 >= 0.70, "#854F0B",  "#A32D2D")
+			VAR B3 = SWITCH(TRUE(), R3 >= 1.00, "#EAF3DE",   R3 >= 0.85, "#E6F1FB",   R3 >= 0.70, "#FAEEDA",  "#FCEBEB")
+			VAR E3 = SWITCH(TRUE(), R3 >= 1.00, "#97C459",   R3 >= 0.85, "#85B7EB",   R3 >= 0.70, "#EF9F27",  "#F09595")
+			
+			VAR EstadoGlobal = N1
+			VAR ColorGlobal  = C1
+			VAR BgGlobal     = B1
+			VAR BordGlobal   = E1
+			
+			// 7. FORMATOS
+			VAR FacFmt    = FORMAT(Facturado_V / 1000000, "$#,##0.0") & "M"
+			VAR CobFmt    = FORMAT(Cobrado_V   / 1000000, "$#,##0.0") & "M"
+			VAR EgrFmt    = FORMAT(Egresos_V   / 1000000, "$#,##0.0") & "M"
+			VAR FlotFmt   = FORMAT(ABS(Flotante_V) / 1000000, "$#,##0.0") & "M"
+			VAR BcFmt     = FORMAT(ABS(BrechaCobro) / 1000000, "$#,##0.0") & "M"
+			VAR BfFmt     = FORMAT(ABS(BrechaFlujo) / 1000000, "$#,##0.0") & "M"
+			VAR SinCobFmt = FORMAT(MAX(Egresos_V - Cobrado_V, 0) / 1000000, "$#,##0.0") & "M"
+			
+			VAR R1Fmt     = FORMAT(R1,  "0.00") & "x"
+			VAR R2Fmt     = FORMAT(R2,  "0.00") & "x"
+			VAR R3Fmt     = FORMAT(R3,  "0.0%")
+			VAR R1MFmt    = FORMAT(R1M, "0.00") & "x"
+			VAR R1MAntFmt = FORMAT(R1MAnt, "0.00") & "x"
+			VAR R2MFmt    = FORMAT(R2M, "0.00") & "x"
+			VAR R2MAntFmt = FORMAT(R2MAnt, "0.00") & "x"
+			VAR R3MFmt    = FORMAT(R3M, "0.0%")
+			VAR R3MAntFmt = FORMAT(R3MAnt, "0.0%")
+			VAR R1TFmt    = FORMAT(ABS(R1Tend * 100), "0.1") & "%"
+			VAR R2TFmt    = FORMAT(ABS(R2Tend), "0.00") & "x"
+			VAR R3TFmt    = FORMAT(ABS(R3Tend * 100), "0.1") & "%"
+			VAR PctFlotFmt= FORMAT(ABS(PctFlotante), "0.0%")
+			VAR VFacFmt   = FORMAT(ABS(VarFacMoM), "0.0%")
+			VAR VCobFmt   = FORMAT(ABS(VarCobMoM), "0.0%")
+			VAR VEgrFmt   = FORMAT(ABS(VarEgrMoM), "0.0%")
+			
+			VAR R1Ti = IF(R1Tend >= 0, "&#9650;", "&#9660;")
+			VAR R1Tc = IF(R1Tend >= 0, "#3B6D11", "#A32D2D")
+			VAR R2Ti = IF(R2Tend <= 0, "&#9660;", "&#9650;")
+			VAR R2Tc = IF(R2Tend <= 0, "#3B6D11", "#A32D2D")
+			VAR R3Ti = IF(R3Tend >= 0, "&#9650;", "&#9660;")
+			VAR R3Tc = IF(R3Tend >= 0, "#3B6D11", "#A32D2D")
+			
+			VAR VFIc  = IF(VarFacMoM >= 0, "&#9650; +", "&#9660; -")
+			VAR VFIco = IF(VarFacMoM >= 0, "#3B6D11", "#A32D2D")
+			VAR VCIc  = IF(VarCobMoM >= 0, "&#9650; +", "&#9660; -")
+			VAR VCIco = IF(VarCobMoM >= 0, "#3B6D11", "#A32D2D")
+			VAR VEIc  = IF(VarEgrMoM <= 0, "&#9660; -", "&#9650; +")
+			VAR VEIco = IF(VarEgrMoM <= 0, "#3B6D11", "#A32D2D")
+			
+			VAR BcColor  = IF(BrechaCobro >= 0, "#3B6D11", "#A32D2D")
+			VAR BfColor  = IF(BrechaFlujo >= 0, "#3B6D11", "#A32D2D")
+			VAR BcSign   = IF(BrechaCobro >= 0, "+", "-")
+			VAR BfSign   = IF(BrechaFlujo >= 0, "+", "-")
+			VAR FlotColor= IF(PctFlotante > 0.35, "#A32D2D", IF(PctFlotante > 0.15, "#854F0B", "#3B6D11"))
+			
+			VAR PctSinCob  = IF(R3 >= 1, 0, 1 - R3)
+			VAR TextSinCob = IF(R3 >= 1, "El cobrado supera los egresos, sin exposicion de liquidez.", "El " & FORMAT(PctSinCob, "0.0%") & " sin cobertura directa deberia financiarse con caja disponible o linea de credito.")
+			
+			// 8. STORYTELLING
+			VAR StoryR1 = SWITCH(TRUE(),
+			    R1 >= 0.90, "Cobranza casi completa (" & R1Fmt & "). De " & FacFmt & " facturado se cobraron " & CobFmt & ", cartera pendiente de solo " & BcFmt & ".",
+			    R1 >= 0.70, "Cobranza eficiente (" & R1Fmt & "). Facturado " & FacFmt & " vs cobrado " & CobFmt & ", brecha de " & BcFmt & ". Ultimo mes: " & R1MFmt & ".",
+			    R1 >= 0.50, "Zona de tension (" & R1Fmt & "). Menos de la mitad de lo facturado (" & FacFmt & ") se ha convertido en efectivo (" & CobFmt & "). Revisar cartera vencida.",
+			                "ALERTA: solo " & R1Fmt & " de lo facturado se ha cobrado. Cartera pendiente de " & BcFmt & " sobre " & FacFmt & " facturado. Riesgo de deterioro de cartera.")
+			
+			VAR StoryR2 = SWITCH(TRUE(),
+			    R2 <= 0.85, "Exposicion holgada (" & R2Fmt & "). Por cada peso cobrado salieron solo " & R2Fmt & " de caja. Margen de maniobra saludable.",
+			    R2 <= 1.00, "Exposicion normal (" & R2Fmt & "). Egresos totales (" & EgrFmt & ") practicamente cubiertos por lo cobrado (" & CobFmt & ").",
+			    R2 <= 1.20, "Exposicion ajustada (" & R2Fmt & "). Descalce de " & BfFmt & " entre cobrado y egresos. Monitorear de cerca.",
+			                "EXCESO (" & R2Fmt & "). Egresos (" & EgrFmt & ") superan ampliamente lo cobrado (" & CobFmt & "). Descalce de " & BfFmt & " — riesgo real de liquidez.")
+			
+			VAR StoryR3 = SWITCH(TRUE(),
+			    R3 >= 1.00, "Cobertura completa (" & R3Fmt & "). " & TextSinCob,
+			    R3 >= 0.85, "Cobertura buena (" & R3Fmt & "). " & TextSinCob,
+			    R3 >= 0.70, "Cobertura parcial (" & R3Fmt & "). Los " & SinCobFmt & " sin respaldo representan exposicion real. Acelerar cobranza.",
+			                "Cobertura insuficiente (" & R3Fmt & "). Los " & SinCobFmt & " sin respaldo representan riesgo real de liquidez. Revisar cartera vencida e incobrable.")
+			
+			VAR StoryFlot = SWITCH(TRUE(),
+			    PctFlotante > 0.35, "El " & PctFlotFmt & " de lo facturado (" & FlotFmt & ") sigue sin cobrarse. Acelerar gestion de cobranza sobre cartera vencida.",
+			    PctFlotante > 0.15, "El " & PctFlotFmt & " (" & FlotFmt & ") de la cartera sigue pendiente de cobro. Monitorear antiguedad.",
+			                        "Cartera pendiente baja (" & PctFlotFmt & " - " & FlotFmt & "). Buena conversion de facturado a efectivo.")
+			
+			VAR StoryDiv = IF(HayDiverg = 1,
+			    "Eficiencia de cobro (" & R1Fmt & ") y cobertura de egresos (" & R3Fmt & ") divergen mas de 0.25x. Se factura bien pero el flujo de cobro no acompana el ritmo de egresos. Cartera pendiente: " & PctFlotFmt & ".",
+			    "Los tres ratios son coherentes entre si. Sin divergencia relevante entre facturacion, cobranza y egresos.")
+			
+			VAR AlertaColor  = IF(HayDiverg = 1, "#854F0B", "#3B6D11")
+			VAR AlertaTitulo = IF(HayDiverg = 1, "Divergencia detectada: ", "Ratios consistentes: ")
+			
+			RETURN
+			"<div style='font-family:Segoe UI,sans-serif;background:#FFFFFF;border:1px solid #E2E4E9;border-radius:12px;overflow:hidden;'>
+			<div style='padding:13px 20px;border-bottom:1px solid #E2E4E9;display:flex;align-items:center;justify-content:space-between;gap:14px;'>
+			<div>
+			<div style='font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#8090A8;margin-bottom:2px;'>Dashboard de tesoreria</div>
+			<div style='font-size:14px;font-weight:600;color:#1A202C;'>Cash Flow Stress Testing · Cobranza vs Egresos</div>
+			<div style='font-size:10px;color:#8090A8;margin-top:1px;'>Acumulado al " & FechaFmt & " · Ultimo mes: " & NombreMes & "</div>
+			</div>
+			<div style='display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;'>
+			<span style='display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:" & BgGlobal & ";color:" & ColorGlobal & ";border:1px solid " & BordGlobal & ";'>" & EstadoGlobal & "</span>
+			<span style='display:inline-flex;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:500;background:" & B1 & ";color:" & C1 & ";border:1px solid " & E1 & ";'>R1 " & R1Fmt & "</span>
+			<span style='display:inline-flex;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:500;background:" & B2 & ";color:" & C2 & ";border:1px solid " & E2 & ";'>R2 " & R2Fmt & "</span>
+			<span style='display:inline-flex;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:500;background:" & B3 & ";color:" & C3 & ";border:1px solid " & E3 & ";'>R3 " & R3Fmt & "</span>
+			</div>
+			</div>
+			<div style='display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #E2E4E9;'>
+			<div style='padding:12px 15px;border-right:1px solid #E2E4E9;'>
+			<div style='font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#8090A8;margin-bottom:5px;'>Facturado acumulado</div>
+			<div style='font-size:20px;font-weight:600;color:#BA7517;font-family:Consolas,monospace;line-height:1.1;margin-bottom:3px;'>" & FacFmt & "</div>
+			<div style='font-size:9px;color:#8090A8;margin-bottom:6px;'>cuentas por cobrar generadas</div>
+			<div style='height:3px;background:#E2E4E9;border-radius:2px;margin-bottom:5px;'><div style='height:100%;width:" & BarFacTop & "%;background:#BA7517;border-radius:2px;'></div></div>
+			<div style='font-size:9px;display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:" & IF(VarFacMoM >= 0,"#EAF3DE","#FCEBEB") & ";color:" & VFIco & ";font-weight:500;'>" & VFIc & VFacFmt & " vs " & NombreMesAnt & "</div>
+			</div>
+			<div style='padding:12px 15px;border-right:1px solid #E2E4E9;'>
+			<div style='font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#8090A8;margin-bottom:5px;'>Cobrado acumulado</div>
+			<div style='font-size:20px;font-weight:600;color:#185FA5;font-family:Consolas,monospace;line-height:1.1;margin-bottom:3px;'>" & CobFmt & "</div>
+			<div style='font-size:9px;color:#8090A8;margin-bottom:4px;'>efectivo real recibido</div>
+			<div style='height:3px;background:#E2E4E9;border-radius:2px;margin-bottom:5px;'><div style='height:100%;width:" & BarCobTop & "%;background:#185FA5;border-radius:2px;'></div></div>
+			<div style='font-size:9px;display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:" & IF(VarCobMoM >= 0,"#EAF3DE","#FCEBEB") & ";color:" & VCIco & ";font-weight:500;'>" & VCIc & VCobFmt & " vs " & NombreMesAnt & "</div>
+			</div>
+			<div style='padding:12px 15px;'>
+			<div style='font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#8090A8;margin-bottom:5px;'>Egresos totales</div>
+			<div style='font-size:20px;font-weight:600;color:" & C2 & ";font-family:Consolas,monospace;line-height:1.1;margin-bottom:3px;'>" & EgrFmt & "</div>
+			<div style='font-size:9px;color:#8090A8;margin-bottom:4px;'>flujo real de caja saliente</div>
+			<div style='height:3px;background:#E2E4E9;border-radius:2px;margin-bottom:5px;'><div style='height:100%;width:" & BarEgrTop & "%;background:" & C2 & ";border-radius:2px;'></div></div>
+			<div style='font-size:9px;display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:4px;background:" & IF(VarEgrMoM <= 0,"#EAF3DE","#FCEBEB") & ";color:" & VEIco & ";font-weight:500;'>" & VEIc & VEgrFmt & " vs " & NombreMesAnt & "</div>
+			</div>
+			</div>
+			<div style='display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid #E2E4E9;'>
+			<div style='padding:12px 15px;border-right:1px solid #E2E4E9;'>
+			<span style='font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:7px;background:" & B1 & ";color:" & C1 & ";border:1px solid " & E1 & ";'>R1 Eficiencia de Cobro</span>
+			<div style='font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8090A8;margin-bottom:4px;'>Cobrado / Facturado</div>
+			<div style='font-size:24px;font-weight:600;color:" & C1 & ";font-family:Consolas,monospace;line-height:1;'>" & R1Fmt & "</div>
+			<div style='font-size:9px;color:#8090A8;margin-top:3px;margin-bottom:6px;'>de lo facturado ya es efectivo</div>
+			<span style='font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:10px;background:" & B1 & ";color:" & C1 & ";border:1px solid " & E1 & ";'>" & N1 & "</span>
+			<div style='display:flex;flex-direction:column;gap:5px;'>
+			<div style='display:flex;align-items:center;gap:6px;'><span style='font-size:9px;color:#8090A8;min-width:72px;'>Facturado</span><div style='flex:1;height:3px;background:#E2E4E9;border-radius:2px;overflow:hidden;'><div style='height:100%;width:" & BarFacR1 & "%;background:#BA7517;border-radius:2px;'></div></div><span style='font-size:9px;color:#BA7517;font-family:Consolas,monospace;min-width:38px;text-align:right;'>" & FacFmt & "</span></div>
+			<div style='display:flex;align-items:center;gap:6px;'><span style='font-size:9px;color:#8090A8;min-width:72px;'>Cobrado</span><div style='flex:1;height:3px;background:#E2E4E9;border-radius:2px;overflow:hidden;'><div style='height:100%;width:" & BarCobR1 & "%;background:#185FA5;border-radius:2px;'></div></div><span style='font-size:9px;color:#185FA5;font-family:Consolas,monospace;min-width:38px;text-align:right;'>" & CobFmt & "</span></div>
+			</div>
+			<div style='font-size:9px;color:#8090A8;margin-top:6px;'>Cartera pendiente: <span style='font-family:Consolas,monospace;color:" & BcColor & ";font-weight:600;'>" & BcSign & BcFmt & "</span></div>
+			<div style='margin-top:7px;padding:6px 8px;background:#F7F8FA;border-radius:6px;border-left:2px solid " & E1 & ";'>
+			<div style='font-size:8px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#8090A8;margin-bottom:3px;'>Tendencia ultimo mes</div>
+			<div style='font-size:9px;color:#8090A8;'>" & NombreMes & ": <span style='font-family:Consolas,monospace;color:" & R1Tc & ";'>" & R1MFmt & "</span> vs " & NombreMesAnt & ": <span style='font-family:Consolas,monospace;'>" & R1MAntFmt & "</span> <span style='color:" & R1Tc & ";'>" & R1Ti & " " & R1TFmt & "</span></div>
+			</div>
+			</div>
+			<div style='padding:12px 15px;border-right:1px solid #E2E4E9;'>
+			<span style='font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:7px;background:" & B2 & ";color:" & C2 & ";border:1px solid " & E2 & ";'>R2 Exposicion</span>
+			<div style='font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8090A8;margin-bottom:4px;'>Egresos / Cobrado</div>
+			<div style='font-size:24px;font-weight:600;color:" & C2 & ";font-family:Consolas,monospace;line-height:1;'>" & R2Fmt & "</div>
+			<div style='font-size:9px;color:#8090A8;margin-top:3px;margin-bottom:6px;'>por $1 cobrado, salio de caja</div>
+			<span style='font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:10px;background:" & B2 & ";color:" & C2 & ";border:1px solid " & E2 & ";'>" & N2 & "</span>
+			<div style='display:flex;flex-direction:column;gap:5px;'>
+			<div style='display:flex;align-items:center;gap:6px;'><span style='font-size:9px;color:#8090A8;min-width:72px;'>Egresos</span><div style='flex:1;height:3px;background:#E2E4E9;border-radius:2px;overflow:hidden;'><div style='height:100%;width:" & BarEgrR2 & "%;background:" & C2 & ";border-radius:2px;'></div></div><span style='font-size:9px;color:" & C2 & ";font-family:Consolas,monospace;min-width:38px;text-align:right;'>" & EgrFmt & "</span></div>
+			<div style='display:flex;align-items:center;gap:6px;'><span style='font-size:9px;color:#8090A8;min-width:72px;'>Cobrado</span><div style='flex:1;height:3px;background:#E2E4E9;border-radius:2px;overflow:hidden;'><div style='height:100%;width:" & BarCobR2 & "%;background:#185FA5;border-radius:2px;'></div></div><span style='font-size:9px;color:#185FA5;font-family:Consolas,monospace;min-width:38px;text-align:right;'>" & CobFmt & "</span></div>
+			</div>
+			<div style='font-size:9px;color:#8090A8;margin-top:6px;'>Descalce acum.: <span style='font-family:Consolas,monospace;color:" & BfColor & ";font-weight:600;'>" & BfSign & BfFmt & "</span></div>
+			<div style='margin-top:7px;padding:6px 8px;background:#F7F8FA;border-radius:6px;border-left:2px solid " & E2 & ";'>
+			<div style='font-size:8px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#8090A8;margin-bottom:3px;'>Tendencia ultimo mes</div>
+			<div style='font-size:9px;color:#8090A8;'>" & NombreMes & ": <span style='font-family:Consolas,monospace;color:" & R2Tc & ";'>" & R2MFmt & "</span> vs " & NombreMesAnt & ": <span style='font-family:Consolas,monospace;'>" & R2MAntFmt & "</span> <span style='color:" & R2Tc & ";'>" & R2Ti & " " & R2TFmt & "</span> (bajar = mejor)</div>
+			</div>
+			</div>
+			<div style='padding:12px 15px;'>
+			<span style='font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:7px;background:" & B3 & ";color:" & C3 & ";border:1px solid " & E3 & ";'>R3 Cobertura</span>
+			<div style='font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8090A8;margin-bottom:4px;'>Cobrado / Egresos</div>
+			<div style='font-size:24px;font-weight:600;color:" & C3 & ";font-family:Consolas,monospace;line-height:1;'>" & R3Fmt & "</div>
+			<div style='font-size:9px;color:#8090A8;margin-top:3px;margin-bottom:6px;'>de egresos con respaldo de cobro</div>
+			<span style='font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:4px;display:inline-block;margin-bottom:10px;background:" & B3 & ";color:" & C3 & ";border:1px solid " & E3 & ";'>" & N3 & "</span>
+			<div style='display:flex;flex-direction:column;gap:5px;'>
+			<div style='display:flex;align-items:center;gap:6px;'><span style='font-size:9px;color:#8090A8;min-width:72px;'>Con cobertura</span><div style='flex:1;height:3px;background:#E2E4E9;border-radius:2px;overflow:hidden;'><div style='height:100%;width:" & BarCob3 & "%;background:#185FA5;border-radius:2px;'></div></div><span style='font-size:9px;color:#185FA5;font-family:Consolas,monospace;min-width:38px;text-align:right;'>" & CobFmt & "</span></div>
+			<div style='display:flex;align-items:center;gap:6px;'><span style='font-size:9px;color:#8090A8;min-width:72px;'>Sin cobertura</span><div style='flex:1;height:3px;background:#E2E4E9;border-radius:2px;overflow:hidden;'><div style='height:100%;width:" & BarSinCob & "%;background:" & C3 & ";border-radius:2px;'></div></div><span style='font-size:9px;color:" & C3 & ";font-family:Consolas,monospace;min-width:38px;text-align:right;'>" & SinCobFmt & "</span></div>
+			</div>
+			<div style='font-size:9px;color:#8090A8;margin-top:6px;'>Cartera pendiente: <span style='font-family:Consolas,monospace;color:" & FlotColor & ";font-weight:600;'>" & FlotFmt & " - " & PctFlotFmt & "</span></div>
+			<div style='margin-top:7px;padding:6px 8px;background:#F7F8FA;border-radius:6px;border-left:2px solid " & E3 & ";'>
+			<div style='font-size:8px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#8090A8;margin-bottom:3px;'>Tendencia ultimo mes</div>
+			<div style='font-size:9px;color:#8090A8;'>" & NombreMes & ": <span style='font-family:Consolas,monospace;color:" & R3Tc & ";'>" & R3MFmt & "</span> vs " & NombreMesAnt & ": <span style='font-family:Consolas,monospace;'>" & R3MAntFmt & "</span> <span style='color:" & R3Tc & ";'>" & R3Ti & " " & R3TFmt & "</span></div>
+			</div>
+			</div>
+			</div>
+			<div style='padding:9px 20px;border-bottom:1px solid #E2E4E9;display:flex;align-items:flex-start;gap:8px;'>
+			<div style='font-size:10px;color:#5C6A80;line-height:1.6;'>
+			<strong style='color:" & AlertaColor & ";'>" & AlertaTitulo & "</strong>" & StoryDiv & "
+			</div>
+			</div>
+			<div style='padding:13px 20px;display:flex;flex-direction:column;gap:9px;'>
+			<div><div style='font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:" & C1 & ";margin-bottom:4px;'>R1 Eficiencia de cobro acumulada</div><div style='font-size:10px;color:#5C6A80;line-height:1.65;'>" & StoryR1 & "</div></div>
+			<div style='height:1px;background:#E2E4E9;'></div>
+			<div><div style='font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:" & C2 & ";margin-bottom:4px;'>R2 Exposicion de caja acumulada</div><div style='font-size:10px;color:#5C6A80;line-height:1.65;'>" & StoryR2 & "</div></div>
+			<div style='height:1px;background:#E2E4E9;'></div>
+			<div><div style='font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:" & C3 & ";margin-bottom:4px;'>R3 Cobertura de egresos acumulada</div><div style='font-size:10px;color:#5C6A80;line-height:1.65;'>" & StoryR3 & "</div></div>
+			<div style='height:1px;background:#E2E4E9;'></div>
+			<div><div style='font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#854F0B;margin-bottom:4px;'>Cartera acumulada pendiente de cobro</div><div style='font-size:10px;color:#5C6A80;line-height:1.65;'>" & StoryFlot & "</div></div>
+			</div>
+			<div style='padding:8px 20px;border-top:1px solid #E2E4E9;font-size:9px;color:#A0AEC0;line-height:1.6;'>
+			R1 / R2 / R3 sobre acumulado total sin filtro de fecha. Tendencia MoM basada en Fecha_Emision (facturado) y Fecha_Pago_Real (cobrado) como indicador de direccion reciente.
+			</div>
+			</div>"
+		displayFolder: HTML Content
+		lineageTag: d74db948-5cf0-4529-9e17-bcf945712b60
+
+	/// Fecha de corte: último Fecha_Pago_Real registrado. Los flujos anteriores son reales; el estrés sólo aplica a la cartera abierta.
+	measure 'Fecha Corte' =
+			-- Último movimiento real registrado: todo lo anterior es flujo realizado (no se estresa)
+			CALCULATE(MAX(fact_Cartera_CxC_CxP[Fecha_Pago_Real]), ALL(fact_Cartera_CxC_CxP), ALL(dim_Calendario))
+		formatString: Short Date
+		lineageTag: bf515158-760d-4604-9ad7-a259ed4f5410
+
+	measure 'Estado Recomendacion' =
+			-- 0 = Mantener | 1 = Aplicar pronto pago | 2 = Pronto pago no basta, usar línea | 3 = Déficit mayor a la línea
+			VAR MinEst = [Minimo de Caja]
+			VAR MinPP = MINX(ALLSELECTED(dim_Calendario[Date]), [Caja Acumulada con Pronto Pago])
+			VAR HayDescuento = [dax_Pct_Descuento_PP] > 0
+			VAR Limite = [Valor de Param_Limite_Linea_Credito]
+			RETURN
+			SWITCH(TRUE(),
+			    MinEst >= 0, 0,
+			    HayDescuento && MinPP >= 0, 1,
+			    -MinEst <= Limite, 2,
+			    3
+			)
+		formatString: 0
+		isHidden
+		lineageTag: 3dd95231-c371-4100-bd29-e132bcdb5948
+
+	measure HTML_Linea_Credito =
+			VAR UltimaFecha = CALCULATE(MAX(dim_Calendario[Date]), ALLSELECTED(dim_Calendario))
+			VAR Disposicion = COALESCE(CALCULATE([Linea de Credito Dispuesta Acumulada], dim_Calendario[Date] = UltimaFecha), 0)
+			VAR Interes = COALESCE(CALCULATE([Interes Acumulado Linea de Credito], dim_Calendario[Date] = UltimaFecha), 0)
+			VAR MinConLinea = [Minimo de Caja con Linea de Credito]
+			VAR Deficit = MAX(0, -[Minimo de Caja])
+			VAR Limite = [Valor de Param_Limite_Linea_Credito]
+			VAR ColorMin = IF(MinConLinea < 0, "#FF5D5D", "#A78BFA")
+			VAR Nota =
+			    SWITCH(TRUE(),
+			        Deficit = 0, "La caja no cae bajo cero en este escenario: la línea no se dispone y no genera costo financiero.",
+			        Deficit > Limite, "⚠️ El límite actual <b style=""color:#8C97AF"">no alcanza a cubrir</b> el peor déficit proyectado (" & FORMAT(Deficit, "$#,##0") & ") — considera un límite mayor o combinarlo con pronto pago.",
+			        "La línea se dispone únicamente hasta cubrir el peor déficit acumulado alcanzado a la fecha, sin exceder el límite — y acumula interés sobre el saldo dispuesto."
+			    )
+			VAR Card = "background:#0D1526;border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:16px 16px 14px;"
+			VAR Lbl = "font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#565F76;margin-bottom:10px;"
+			VAR Val = "font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600;letter-spacing:-.01em;"
+			RETURN
+			"<div style=""font-family:Inter,sans-serif;background:#111B30;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:26px 26px 20px;"">" &
+			"<div style=""display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px;flex-wrap:wrap;gap:8px;"">" &
+			"<div style=""font-family:Fraunces,serif;font-weight:600;font-size:19px;color:#EAEEF7;"">Línea de Crédito de Respaldo</div>" &
+			"<div style=""font-family:'JetBrains Mono',monospace;font-size:11px;color:#565F76;"">Aquí está la solución, no solo el problema</div>" &
+			"</div>" &
+			"<div style=""display:grid;grid-template-columns:repeat(3,1fr);gap:12px;"">" &
+			"<div style=""" & Card & """><div style=""" & Lbl & """>Disposición Máxima</div><div style=""" & Val & "color:#EAEEF7;"">" & FORMAT(Disposicion, "$#,##0") & "</div></div>" &
+			"<div style=""" & Card & """><div style=""" & Lbl & """>Costo Financiero</div><div style=""" & Val & "color:#EAEEF7;"">" & FORMAT(Interes, "$#,##0") & "</div></div>" &
+			"<div style=""" & Card & """><div style=""" & Lbl & """>Mínimo con Línea</div><div style=""" & Val & "color:" & ColorMin & ";"">" & FORMAT(MinConLinea, "$#,##0") & "</div></div>" &
+			"</div>" &
+			"<div style=""font-size:12.5px;color:#565F76;line-height:1.7;margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.05);"">" & Nota & "</div>" &
+			"</div>"
+		displayFolder: HTML Content
+		lineageTag: 1c25048e-18d6-44e0-9901-714a6838ef5c
+
+	partition Medidas = m
+		mode: import
+		source =
+				let
+				  Origen = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("i44FAA==", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [#"Columna 1" = _t]),
+				    #"Columnas quitadas" = Table.RemoveColumns(Origen,{"Columna 1"})
+				in
+				  #"Columnas quitadas"
+
+	annotation PBI_NavigationStepName = Navegación
+
+	annotation PBI_ResultType = Table
+

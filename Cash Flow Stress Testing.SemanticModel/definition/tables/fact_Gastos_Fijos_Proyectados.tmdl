@@ -1,0 +1,45 @@
+table fact_Gastos_Fijos_Proyectados
+	lineageTag: cd2f4674-8c1a-4680-9810-b61842c2169e
+
+	column Fecha_Programada
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: de427869-a68d-4f1d-b44d-6e784209579b
+		summarizeBy: none
+		sourceColumn: Fecha_Programada
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column Concepto
+		dataType: string
+		lineageTag: 9d2209b2-3ceb-4cb7-9733-7f6e3a3f394b
+		summarizeBy: none
+		sourceColumn: Concepto
+
+		annotation SummarizationSetBy = Automatic
+
+	column Monto_Proyectado
+		dataType: decimal
+		formatString: 0
+		lineageTag: 3cfdb8f2-f938-41c5-8aaf-770fba89d410
+		summarizeBy: sum
+		sourceColumn: Monto_Proyectado
+
+		annotation SummarizationSetBy = Automatic
+
+	partition fact_Gastos_Fijos_Proyectados = m
+		mode: import
+		source =
+				let
+				  Origen = Csv.Document(File.Contents("C:\Users\TYP\OneDrive - Ixtletec\Escritorio\Portafolio\Cash Flow Stress Testing_PBI\gemini-code-1785530198676.txt"), [Delimiter = ",", Columns = 3, Encoding = 65001, QuoteStyle = QuoteStyle.None]),
+				  #"Encabezados promovidos" = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				    #"Tipo cambiado" = Table.TransformColumnTypes(#"Encabezados promovidos",{{"Monto_Proyectado", Currency.Type}, {"Fecha_Programada", type date}})
+				in
+				    #"Tipo cambiado"
+
+	annotation PBI_ResultType = Table
+
+	annotation PBI_NavigationStepName = Navegación
+

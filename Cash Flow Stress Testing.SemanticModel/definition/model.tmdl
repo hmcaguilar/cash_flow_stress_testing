@@ -1,0 +1,35 @@
+model Model
+	culture: es-ES
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	sourceQueryCulture: es-MX
+	valueFilterBehavior: independent
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBI_QueryOrder = ["fact_Cartera_CxC_CxP","fact_Gastos_Fijos_Proyectados","dim_Proveedores","dim_Clientes","Medidas"]
+
+annotation PBI_ProTooling = ["MCP-PBIModeling","DevMode"]
+
+ref table fact_Cartera_CxC_CxP
+ref table fact_Gastos_Fijos_Proyectados
+ref table dim_Proveedores
+ref table dim_Clientes
+ref table dim_Calendario
+ref table Medidas
+ref table Param_Dias_Retraso_CxC
+ref table Param_Pct_Impago
+ref table Param_Inc_Gastos
+ref table Param_Pronto_Pago
+ref table DateTableTemplate_68067faa-326a-44af-84ed-a3d0e656eece
+ref table Param_Dias_Adelanto_PP
+ref table LocalDateTable_b465f06d-bb2b-493d-a6e8-fa208afdf063
+ref table LocalDateTable_ed99d049-ca78-47d9-8c52-a6015c0e5154
+ref table LocalDateTable_8b571638-567e-4d08-b93a-4a1072f7abe8
+ref table Param_Limite_Linea_Credito
+ref table Param_Tasa_Interes_Anual
+
+ref cultureInfo es-ES
+

@@ -1,0 +1,30 @@
+table Param_Dias_Adelanto_PP
+	lineageTag: 2156ec6b-8b21-48a0-850f-381ee0c1535d
+
+	measure 'Valor de Param_Dias_Adelanto_PP' =
+			-- Si el slicer es de rango, toma el límite superior en vez de caer al valor por defecto
+			IF(
+			    ISFILTERED('Param_Dias_Adelanto_PP'[Param_Dias_Adelanto_PP]),
+			    MAX('Param_Dias_Adelanto_PP'[Param_Dias_Adelanto_PP]),
+			    15
+			)
+		formatString: 0
+		lineageTag: 80b2714d-9992-4037-90e2-5651e8a394d2
+
+	column Param_Dias_Adelanto_PP
+		formatString: 0
+		lineageTag: add7ba7d-ee34-44b7-806c-6c781d653ce7
+		summarizeBy: none
+		sourceColumn: [Value]
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 0
+				}
+
+		annotation SummarizationSetBy = User
+
+	partition Param_Dias_Adelanto_PP = calculated
+		mode: import
+		source = GENERATESERIES(0, 30, 5)
+

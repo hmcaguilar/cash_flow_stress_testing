@@ -1,0 +1,28 @@
+table Param_Inc_Gastos
+	lineageTag: 3e462052-c4ec-4564-951f-8c16d95c1040
+
+	measure 'Valor de Param_Inc_Gastos' = SELECTEDVALUE('Param_Inc_Gastos'[Param_Inc_Gastos], 0)
+		lineageTag: 53ba5731-0853-43c1-a3b3-284276627df2
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Param_Inc_Gastos
+		lineageTag: 16686970-df94-4797-acd8-d5d5b29c7e55
+		summarizeBy: none
+		sourceColumn: [Value]
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 0
+				}
+
+		annotation SummarizationSetBy = User
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition Param_Inc_Gastos = calculated
+		mode: import
+		source = GENERATESERIES(0, 0.2, 0.05)
+
+	annotation PBI_Id = 2bde4255315b43b3bd4fbe4fe46e34e2
+

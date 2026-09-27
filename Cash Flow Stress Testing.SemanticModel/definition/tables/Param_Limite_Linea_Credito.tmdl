@@ -1,0 +1,25 @@
+table Param_Limite_Linea_Credito
+	lineageTag: 7c147c1e-8bf6-4f7d-9326-424774d4781f
+
+	measure 'Valor de Param_Limite_Linea_Credito' = SELECTEDVALUE('Param_Limite_Linea_Credito'[Param_Limite_Linea_Credito], 1500000)
+		formatString: $#,##0
+		displayFolder: Linea de Credito
+		lineageTag: ae476d45-e0af-43e5-80f9-266c39651755
+
+	column Param_Limite_Linea_Credito
+		formatString: \$#,0
+		lineageTag: be53a643-392a-41ef-9a4f-de376d661711
+		summarizeBy: none
+		sourceColumn: [Value]
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 0
+				}
+
+		annotation SummarizationSetBy = User
+
+	partition Param_Limite_Linea_Credito = calculated
+		mode: import
+		source = GENERATESERIES(0, 3000000, 250000)
+

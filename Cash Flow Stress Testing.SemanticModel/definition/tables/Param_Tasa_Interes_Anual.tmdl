@@ -1,0 +1,25 @@
+table Param_Tasa_Interes_Anual
+	lineageTag: fc1b22fd-a044-4b88-a5b2-d82d08b46add
+
+	measure 'Valor de Param_Tasa_Interes_Anual' = SELECTEDVALUE('Param_Tasa_Interes_Anual'[Param_Tasa_Interes_Anual], 0.12)
+		formatString: 0%
+		displayFolder: Linea de Credito
+		lineageTag: f06e9ddf-ac4b-426e-a3a9-3adc0cbe5576
+
+	column Param_Tasa_Interes_Anual
+		formatString: 0%
+		lineageTag: b269ac2c-f3fc-49fc-8ca0-c24b2760175d
+		summarizeBy: none
+		sourceColumn: [Value]
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 0
+				}
+
+		annotation SummarizationSetBy = User
+
+	partition Param_Tasa_Interes_Anual = calculated
+		mode: import
+		source = GENERATESERIES(0, 0.24, 0.02)
+

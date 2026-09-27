@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.12.0/schema.json",
+  "name": "4bc6213c4797acfffb81",
+  "position": {
+    "x": 950.76923076923072,
+    "y": 2305,
+    "z": 8000,
+    "height": 529,
+    "width": 918.46153846153845,
+    "tabOrder": 11000
+  },
+  "visual": {
+    "visualType": "htmlContent443BE3AD55E043BF878BED274D3A6855",
+    "query": {
+      "queryState": {
+        "content": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Medidas"
+                    }
+                  },
+                  "Property": "HTML_Risk_Matrix"
+                }
+              },
+              "queryRef": "Medidas.HTML_Risk_Matrix",
+              "nativeQueryRef": "HTML_Risk_Matrix"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,26 @@
+Fecha_Programada,Concepto,Monto_Proyectado
+2026-05-05,Renta de Planta,60000.00
+2026-05-10,Servicios (Luz/Agua/Internet),21267.14
+2026-05-15,Nómina Quincenal,168076.56
+2026-05-17,Impuestos / Seguro Social,43855.71
+2026-05-31,Nómina Quincenal,162204.51
+2026-06-05,Renta de Planta,60000.00
+2026-06-15,Nómina Quincenal,163633.61
+2026-06-17,Impuestos / Seguro Social,42763.73
+2026-06-20,Mantenimiento Programado,49715.62
+2026-06-30,Nómina Quincenal,162139.17
+2026-07-05,Renta de Planta,60000.00
+2026-07-10,Servicios (Luz/Agua/Internet),22924.12
+2026-07-15,Nómina Quincenal,171165.09
+2026-07-17,Impuestos / Seguro Social,47416.83
+2026-07-31,Nómina Quincenal,167482.45
+2026-08-05,Renta de Planta,60000.00
+2026-08-15,Nómina Quincenal,162213.30
+2026-08-17,Impuestos / Seguro Social,42002.44
+2026-08-31,Nómina Quincenal,165671.12
+2026-09-05,Renta de Planta,60000.00
+2026-09-10,Servicios (Luz/Agua/Internet),23237.64
+2026-09-15,Nómina Quincenal,162016.79
+2026-09-17,Impuestos / Seguro Social,45479.91
+2026-09-20,Mantenimiento Programado,51274.59
+2026-09-30,Nómina Quincenal,164018.43

@@ -1,0 +1,26 @@
+table Param_Dias_Retraso_CxC
+	lineageTag: 77d7ab48-15a4-4ccb-9efb-478a469170a2
+
+	measure 'Valor de Param_Dias_Retraso_CxC' = SELECTEDVALUE('Param_Dias_Retraso_CxC'[Param_Dias_Retraso_CxC], 0)
+		formatString: 0
+		lineageTag: c9af153c-12af-41a7-a4b3-261c6a6e466d
+
+	column Param_Dias_Retraso_CxC
+		formatString: 0
+		lineageTag: ae3b18b6-75f3-4875-96c8-0412759736c0
+		summarizeBy: none
+		sourceColumn: [Value]
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 0
+				}
+
+		annotation SummarizationSetBy = User
+
+	partition Param_Dias_Retraso_CxC = calculated
+		mode: import
+		source = GENERATESERIES(0, 90, 15)
+
+	annotation PBI_Id = 508b07ec2b8644d88130eb173c16ddfc
+

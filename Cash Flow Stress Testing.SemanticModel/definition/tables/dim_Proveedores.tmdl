@@ -1,0 +1,50 @@
+table dim_Proveedores
+	lineageTag: b2532213-c4f7-4912-8a9a-0976e04cdec3
+
+	column ID_Tercero
+		dataType: string
+		lineageTag: d692f14d-dce4-488f-9c40-6adf07069971
+		summarizeBy: none
+		sourceColumn: ID_Tercero
+
+		annotation SummarizationSetBy = Automatic
+
+	column Nombre_Proveedor
+		dataType: string
+		lineageTag: fdb92dd2-bfa6-4659-b414-abbb4c0d1848
+		summarizeBy: none
+		sourceColumn: Nombre_Proveedor
+
+		annotation SummarizationSetBy = Automatic
+
+	column Categoria
+		dataType: string
+		lineageTag: 0b2e9f47-af1f-4748-be80-c36db4d4dfb7
+		summarizeBy: none
+		sourceColumn: Categoria
+
+		annotation SummarizationSetBy = Automatic
+
+	column Dias_Credito_Pactados
+		dataType: int64
+		formatString: 0
+		lineageTag: 07d91798-131f-4338-b57b-1d856bf47dd9
+		summarizeBy: none
+		sourceColumn: Dias_Credito_Pactados
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_Proveedores = m
+		mode: import
+		source =
+				let
+				  Origen = Csv.Document(File.Contents("C:\Users\TYP\OneDrive - Ixtletec\Escritorio\Portafolio\Cash Flow Stress Testing_PBI\gemini-code-1785530203210.txt"), [Delimiter = ",", Columns = 4, Encoding = 65001, QuoteStyle = QuoteStyle.None]),
+				  #"Encabezados promovidos" = Table.PromoteHeaders(Origen, [PromoteAllScalars = true]),
+				  #"Tipo de columna cambiado" = Table.TransformColumnTypes(#"Encabezados promovidos", {{"ID_Tercero", type text}, {"Nombre_Proveedor", type text}, {"Categoria", type text}, {"Dias_Credito_Pactados", Int64.Type}}, "es")
+				in
+				  #"Tipo de columna cambiado"
+
+	annotation PBI_ResultType = Table
+
+	annotation PBI_NavigationStepName = Navegación
+

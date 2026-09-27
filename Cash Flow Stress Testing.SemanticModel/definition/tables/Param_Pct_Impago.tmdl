@@ -1,0 +1,28 @@
+table Param_Pct_Impago
+	lineageTag: f3bd4938-920b-4b8a-ba66-524e2d8cceec
+
+	measure 'Valor de Param_Pct_Impago' = SELECTEDVALUE('Param_Pct_Impago'[Param_Pct_Impago], 0)
+		lineageTag: 3b95cdcf-4102-4873-b535-dd7f1b8f97e9
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Param_Pct_Impago
+		lineageTag: 1168599a-8b01-4f22-a409-77b9ad682c21
+		summarizeBy: none
+		sourceColumn: [Value]
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 0
+				}
+
+		annotation SummarizationSetBy = User
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition Param_Pct_Impago = calculated
+		mode: import
+		source = GENERATESERIES(0, 0.3, 0.05)
+
+	annotation PBI_Id = 76124ebac91b4d5394ac0d16fe3415e3
+

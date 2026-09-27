@@ -1,0 +1,28 @@
+table Param_Pronto_Pago
+	lineageTag: 66981832-e88c-4687-bae8-65e7a0f06acf
+
+	measure 'Valor de Param_Pronto_Pago' = SELECTEDVALUE('Param_Pronto_Pago'[Param_Pronto_Pago], 0)
+		lineageTag: 2a8eb604-4bd3-4042-833d-e5a3d9a052d1
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Param_Pronto_Pago
+		lineageTag: e632f772-af81-4495-8388-ca1aa0b92d54
+		summarizeBy: none
+		sourceColumn: [Value]
+
+		extendedProperty ParameterMetadata =
+				{
+				  "version": 0
+				}
+
+		annotation SummarizationSetBy = User
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	partition Param_Pronto_Pago = calculated
+		mode: import
+		source = GENERATESERIES(0, 0.1, 0.01)
+
+	annotation PBI_Id = 89e20755ce5440e7817e6f99414bec58
+

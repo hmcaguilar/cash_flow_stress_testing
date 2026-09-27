@@ -1,0 +1,7 @@
+ID_Tercero,Nombre_Proveedor,Categoria,Dias_Credito_Pactados
+PROV-01,Energía y Combustibles SA,Insumos Críticos,30
+PROV-02,Mantenimiento Industrial Corp,Servicios Operativos,30
+PROV-03,Arrendadora de Inmuebles,Fijo / Rentas,30
+PROV-04,Sistemas y Tecnología Ltd,Tecnología,30
+PROV-05,Insumos de Empaque MX,Insumos Críticos,30
+PROV-06,Consultoría Legal & Fiscal,Servicios Profesionales,45

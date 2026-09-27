@@ -1,0 +1,31 @@
+relationship 490e0c57-3ac2-7a6d-596c-c6b6a57110e7
+	fromColumn: fact_Cartera_CxC_CxP.ID_Tercero
+	toColumn: dim_Clientes.ID_Tercero
+
+relationship 126d00cc-e9aa-0c95-5831-2c75725de42e
+	fromColumn: fact_Cartera_CxC_CxP.ID_Tercero
+	toColumn: dim_Proveedores.ID_Tercero
+
+relationship 959f7033-694e-43b5-9cab-543af1dda93e
+	joinOnDateBehavior: datePartOnly
+	fromColumn: fact_Cartera_CxC_CxP.Fecha_Emision
+	toColumn: LocalDateTable_b465f06d-bb2b-493d-a6e8-fa208afdf063.Date
+
+relationship 94f6f1b0-7674-4fd4-afb1-7ce221ad3397
+	joinOnDateBehavior: datePartOnly
+	fromColumn: fact_Cartera_CxC_CxP.Fecha_Pago_Real
+	toColumn: LocalDateTable_ed99d049-ca78-47d9-8c52-a6015c0e5154.Date
+
+relationship e9b16dbb-d0fc-49de-8287-707c00874985
+	joinOnDateBehavior: datePartOnly
+	fromColumn: dim_Calendario.Date
+	toColumn: LocalDateTable_8b571638-567e-4d08-b93a-4a1072f7abe8.Date
+
+relationship ed7b1ddd-e065-6d67-e5b8-7d4a8abfc455
+	fromColumn: fact_Gastos_Fijos_Proyectados.Fecha_Programada
+	toColumn: dim_Calendario.Date
+
+relationship 31410926-1084-3a36-32ca-593fa623c607
+	fromColumn: fact_Cartera_CxC_CxP.Fecha_Vencimiento
+	toColumn: dim_Calendario.Date
+

@@ -1,0 +1,76 @@
+table dim_Calendario
+	lineageTag: dfaa6ab3-93a0-4c68-a7a4-f2d31c7b3de1
+
+	column Date
+		formatString: Short Date
+		lineageTag: 4678fe42-e404-4a9d-8a72-b0d891d2356c
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Date]
+
+		variation Variación
+			isDefault
+			relationship: e9b16dbb-d0fc-49de-8287-707c00874985
+			defaultHierarchy: LocalDateTable_8b571638-567e-4d08-b93a-4a1072f7abe8.'Jerarquía de fechas'
+
+		annotation SummarizationSetBy = Automatic
+
+	column Año
+		formatString: 0
+		lineageTag: 2d1c825a-3753-4240-b11b-f636f488c0ee
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Año]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Trimestre
+		lineageTag: e59d1881-9619-462a-a9f4-8999cb115e4d
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Trimestre]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Mes
+		formatString: 0
+		lineageTag: a54cc577-3dbb-4acb-bf71-db330b28e1ec
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Mes]
+
+		annotation SummarizationSetBy = Automatic
+
+	column Nombre_Mes
+		lineageTag: 42db7c55-67d3-4a5a-8f63-072e6bee2f16
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [Nombre_Mes]
+		sortByColumn: Mes
+
+		annotation SummarizationSetBy = Automatic
+
+	column Num_Semana
+		formatString: 0
+		lineageTag: 667ef6c1-3e17-43a8-80df-d22784b09058
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [Num_Semana]
+
+		annotation SummarizationSetBy = Automatic
+
+	partition dim_Calendario = calculated
+		mode: import
+		source =
+				
+				ADDCOLUMNS (
+				    CALENDAR(DATE(2026, 5, 1), DATE(2026, 12, 31)),
+				    "Año", YEAR([Date]),
+				    "Trimestre", "T" & FORMAT([Date], "Q"),
+				    "Mes", MONTH([Date]),
+				    "Nombre_Mes", FORMAT([Date], "mmm", "es-MX"),
+				    "Num_Semana", WEEKNUM([Date])
+				)
+
+	annotation PBI_Id = ea30a3540eb54730970a56649dc1adb8
+

@@ -1,0 +1,9 @@
+ID_Tercero,Nombre_Cliente,Sector,Score_Riesgo,Dias_Credito_Pactados
+CLI-01,TechLogistics Corp,Logística,Bajo,30
+CLI-02,Comercializadora Global,Retail,Medio,30
+CLI-03,Industrias Norte,Manufactura,Alto,30
+CLI-04,Servicios Integrales SA,Servicios,Bajo,30
+CLI-05,Distribuidora del Centro,Consumo Masivo,Medio,30
+CLI-06,Grupo Constructor Andes,Construcción,Alto,30
+CLI-07,Alimentos del Valle SA,Consumo Masivo,Bajo,15
+CLI-08,Textiles Monarca,Manufactura,Medio,45
